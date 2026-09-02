@@ -9,7 +9,7 @@ import { knowledgeStatus } from "./status.js";
 export function createMcpServer() {
   const server = new McpServer({
     name: "workspace-kb",
-    version: "1.3.0",
+    version: "1.4.0",
   });
 
   server.registerTool(

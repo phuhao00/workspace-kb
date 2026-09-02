@@ -4,6 +4,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  actionFeedback,
   actionRestartMcp,
   actionRestartServer,
   actionSetup,
@@ -11,9 +12,12 @@ import {
   getControlStatus,
 } from "./actions.js";
 import { getPackageRoot, loadRuntimeConfig } from "./config.js";
+import { getHealth } from "./health.js";
 import { McpHttpGateway } from "./mcp-http.js";
 import { getUsageDashboard } from "./usage.js";
 import { knowledgeStatus } from "./status.js";
+import { summarizeFeedback } from "./feedback.js";
+import { listProjects } from "./daemon.js";
 
 const WEB_DIR = path.join(getPackageRoot(), "web");
 
@@ -54,8 +58,29 @@ export async function startDashboard(options = {}) {
       }
 
       if (url.pathname === "/api/actions/ingest" && req.method === "POST") {
-        const payload = await actionStartIngest();
+        const body = (await readJsonBody(req)) || {};
+        const payload = await actionStartIngest({ full: body.full === true });
         return sendJson(res, payload.ok ? 200 : 409, payload);
+      }
+
+      if (url.pathname === "/api/actions/feedback" && req.method === "POST") {
+        const body = (await readJsonBody(req)) || {};
+        return sendJson(res, 200, actionFeedback(body));
+      }
+
+      if (url.pathname === "/api/health" && req.method === "GET") {
+        return sendJson(res, 200, await getHealth(ctx));
+      }
+
+      if (url.pathname === "/api/projects" && req.method === "GET") {
+        return sendJson(res, 200, { ok: true, projects: listProjects() });
+      }
+
+      if (url.pathname === "/api/feedback" && req.method === "GET") {
+        return sendJson(res, 200, {
+          ok: true,
+          ...summarizeFeedback({ days: url.searchParams.get("days") || 30 }),
+        });
       }
 
       if (url.pathname === "/api/actions/restart-server" && req.method === "POST") {

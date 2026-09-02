@@ -7,7 +7,9 @@ Index curated docs / skills / wiki — not your full source tree. Cursor talks o
 ## Requirements
 
 - Node.js >= 20
-- [Ollama](https://ollama.com) with an embedding model (default **`bge-m3`**, 1024-d)
+- Embedding backend (one of):
+  - **Ollama** (default): `ollama pull bge-m3`
+  - **OpenAI / compatible**: set `"embedProvider": "openai"` + `OPENAI_API_KEY`
 
 ```bash
 ollama pull bge-m3
@@ -15,42 +17,74 @@ ollama pull bge-m3
 
 Tighter VRAM: `WORKSPACE_KB_MODEL=nomic-embed-text` (set matching `embedDim` in config).
 
-## Install
+## Quick start
+
+```bash
+npx workspace-kb init
+npm install
+npx workspace-kb ingest
+npx workspace-kb start          # background dashboard + HTTP MCP
+# open http://127.0.0.1:8787/
+```
+
+## Install / upgrade
 
 ```bash
 npm install github:phuhao00/workspace-kb
 ```
 
-**Auto-setup (v1.2+):** on `npm install` / `npm update`, if `workspace-kb.config.json` exists in the install directory or a parent folder, the package writes:
+**Auto-setup (v1.2+):** on install/update/ingest, if `workspace-kb.config.json` exists, writes:
 
-- `.cursor/mcp.json` — project-local MCP server (`<folder>-kb`, overridable via config)
-- `AGENTS.md` — managed `<!-- WORKSPACE-KB:START -->` block telling agents to call `kb_search` first
+- `.cursor/mcp.json` — default **HTTP** MCP → `http://127.0.0.1:<port>/mcp`
+- `.cursor/rules/workspace-kb-routing.mdc` (`alwaysApply`)
+- `.cursor/skills/query-workspace-kb/SKILL.md`
+- `.continue/workspace-kb.mcp.json` (Continue.dev snippet)
+- `AGENTS.md` managed block (unless `setup.agentsMd: false`)
 
-Also re-runs after every successful `ingest`. Set `WORKSPACE_KB_SKIP_SETUP=1` to disable postinstall, or `"setup": { "enabled": false }` in config.
+Disable: `WORKSPACE_KB_SKIP_SETUP=1` or `"setup": { "enabled": false }`.
 
-MCP entries include **`env.WORKSPACE_KB_CONFIG`** (absolute path) because Cursor may not set the child process `cwd` correctly — without it, `kb_search` can silently query the wrong folder (e.g. `C:\\Users\\...`).
+## CLI
 
-Also writes `.cursor/rules/workspace-kb-routing.mdc` (`alwaysApply: true`) so agents call `kb_search` before broad scans.
-
-After install/update, **restart MCP in Cursor** so `kb_search` / `kb_read` appear in chat.
-
-Optional config overrides:
-
-```json
-{
-  "setup": {
-    "mcpServerId": "my-project-kb",
-    "dashboardPort": 8788,
-    "agentsMd": true
-  }
-}
+```bash
+npx workspace-kb init [--force] [--name app] [--port 8787]
+npx workspace-kb ingest [--full]          # incremental by default
+npx workspace-kb search "充值未到账"
+npx workspace-kb read docs/pay.md "Overview"
+npx workspace-kb status
+npx workspace-kb health
+npx workspace-kb stats --days 7
+npx workspace-kb start|stop|serve [--port 8787]
+npx workspace-kb projects
+npx workspace-kb setup
+npx workspace-kb feedback [--bad] "note"
 ```
 
-Skip rewriting `AGENTS.md` if it already mentions `kb_search` (custom docs preserved). Set `"agentsMd": false` to only write MCP.
+## Dashboard (v1.4)
+
+```bash
+npx workspace-kb start   # or: serve
+# http://127.0.0.1:8787/
+```
+
+- **控制**：重启 MCP / 重新配置 / 增量·全量索引 / 重启看板
+- **健康检查**：config · workspaceRoot · index · embed · MCP · 命中率
+- **多项目**：本机 registry（`~/.workspace-kb/registry.json`）
+- **命中率 + Feedback**：Recent events 旁 👍/👎，路径加权进检索
+
+MCP HTTP endpoint: `http://127.0.0.1:8787/mcp` — keep `start`/`serve` running.
+
+## Features (v1.4)
+
+| Area | What |
+|------|------|
+| Hybrid search | Vector + lexical (CJK bigrams) + kind boost + feedback boost |
+| Query rewrite | Builtin CN/EN synonyms (`synonyms` in config) |
+| Incremental ingest | Fingerprints + vector cache; `--full` to rebuild |
+| Daemon | `start` / `stop` / `projects` |
+| No Ollama | `"embedProvider": "openai"` + `OPENAI_API_KEY` (+ optional `openaiBaseUrl`) |
+| Continue | `.continue/workspace-kb.mcp.json` + `examples/continue.mcp.json` |
 
 ## Configure
-
-Put `workspace-kb.config.json` at your **workspace root** (or set `WORKSPACE_KB_CONFIG`):
 
 ```json
 {
@@ -58,135 +92,46 @@ Put `workspace-kb.config.json` at your **workspace root** (or set `WORKSPACE_KB_
   "dataDir": ".workspace-kb",
   "model": "bge-m3",
   "embedDim": 1024,
+  "embedProvider": "ollama",
+  "incremental": true,
+  "rewriteQuery": true,
+  "synonyms": {
+    "登不进": ["登录", "login", "token"]
+  },
   "paths": [".agents", "docs", "*.md"],
   "childRepos": ["api", "web"],
   "childGlobs": ["README*.md", "docs/**/*.md"],
-  "skipDirs": ["node_modules", "vendor", ".git", ".next", "Library", "logs"]
-}
-```
-
-Index + `usage.jsonl` live under `dataDir` (git-ignore it).
-
-## CLI
-
-```bash
-npx workspace-kb ingest
-npx workspace-kb search "payment failure"
-npx workspace-kb read docs/pay.md "Overview"
-npx workspace-kb status
-npx workspace-kb stats --days 7
-npx workspace-kb serve --port 8787
-```
-
-## Dashboard (token efficiency UI)
-
-Built-in local page — no Monitor / Next.js required:
-
-```bash
-npx workspace-kb serve
-# open http://127.0.0.1:8787/
-```
-
-Shows call counts, estimated returned/saved tokens (`chars/4`), daily trends, top queries, and recent events. Auto-refreshes every 15s.
-
-**Control panel (v1.3+):** restart HTTP MCP, re-run setup, trigger ingest, or restart the dashboard — no Cursor Settings trip.
-
-MCP defaults to **HTTP** on the dashboard port (`http://127.0.0.1:8787/mcp`). Keep `npx workspace-kb serve` running while using Cursor. Set `"setup": { "mcpMode": "stdio" }` for legacy stdio MCP.
-
-## Cursor MCP
-
-```json
-{
-  "mcpServers": {
-    "workspace-kb": {
-      "command": "node",
-      "args": ["node_modules/workspace-kb/src/mcp.js"],
-      "cwd": "/absolute/path/to/your/workspace"
-    }
+  "setup": {
+    "mcpServerId": "my-project-kb",
+    "dashboardPort": 8787,
+    "mcpMode": "http",
+    "agentsMd": true,
+    "cursorSkill": true,
+    "continueConfig": true
   }
 }
 ```
 
-Tools: `kb_search` · `kb_read` · `kb_status`.
-
-## Multiple projects on one machine
-
-Each workspace keeps its **own** config and data. They do not share an index.
-
-```text
-E:/project-a/
-  workspace-kb.config.json
-  .workspace-kb/                 # project-a index + usage.jsonl
-
-E:/project-b/
-  workspace-kb.config.json
-  .workspace-kb/                 # project-b only
-```
-
-### CLI
-
-Run commands **from that project root** (or set `WORKSPACE_KB_CONFIG`):
-
-```bash
-cd E:/project-a
-npx workspace-kb ingest
-npx workspace-kb serve --port 8787
-
-cd E:/project-b
-npx workspace-kb ingest
-npx workspace-kb serve --port 8788   # different port
-```
-
-Or pin the config explicitly:
-
-```bash
-set WORKSPACE_KB_CONFIG=E:\project-b\workspace-kb.config.json
-npx workspace-kb status
-```
-
-### Dashboard ports
-
-Two `serve` processes cannot bind the same port. Use `--port` or `WORKSPACE_KB_PORT`.
-
-| Project   | Example URL                    |
-|-----------|--------------------------------|
-| project-a | http://127.0.0.1:8787/         |
-| project-b | http://127.0.0.1:8788/         |
-
-### Cursor MCP
-
-User-level `mcp.json` is usually global. Register **two servers** with different `cwd` (and optional `env`):
+OpenAI-compatible example:
 
 ```json
 {
-  "mcpServers": {
-    "kb-project-a": {
-      "command": "node",
-      "args": ["E:/project-a/node_modules/workspace-kb/src/mcp.js"],
-      "cwd": "E:/project-a"
-    },
-    "kb-project-b": {
-      "command": "node",
-      "args": ["E:/project-b/node_modules/workspace-kb/src/mcp.js"],
-      "cwd": "E:/project-b",
-      "env": {
-        "WORKSPACE_KB_CONFIG": "E:/project-b/workspace-kb.config.json"
-      }
-    }
-  }
+  "embedProvider": "openai",
+  "model": "text-embedding-3-small",
+  "embedDim": 1536,
+  "openaiBaseUrl": "https://api.openai.com/v1"
 }
 ```
 
-Prefer a **project-local** `.cursor/mcp.json` inside each repo so opening that folder only loads that KB.
-
-See also [`examples/multi-project.mcp.json`](examples/multi-project.mcp.json) and the twin sample trees [`examples/multi-a`](examples/multi-a) / [`examples/multi-b`](examples/multi-b).
-
-After upgrading the package:
+## Multiple projects
 
 ```bash
-npm install github:phuhao00/workspace-kb#master
-# then restart the MCP servers in Cursor
+cd E:/project-a && npx workspace-kb start --port 8787
+cd E:/project-b && npx workspace-kb start --port 8788
+npx workspace-kb projects
 ```
+
+Dashboard lists both. Prefer project-local `.cursor/mcp.json`.
 
 ## Env
 
@@ -194,10 +139,13 @@ npm install github:phuhao00/workspace-kb#master
 |----------|---------|
 | `WORKSPACE_KB_CONFIG` | Absolute path to config JSON |
 | `WORKSPACE_ROOT` | Override workspace root |
-| `WORKSPACE_KB_MODEL` / `BUYU_KB_MODEL` | Embedding model id |
-| `WORKSPACE_KB_DIM` / `BUYU_KB_DIM` | Expected dimension |
+| `WORKSPACE_KB_MODEL` | Embedding model id |
+| `WORKSPACE_KB_DIM` | Expected dimension |
+| `WORKSPACE_KB_EMBED_PROVIDER` | `ollama` \| `openai` |
+| `OPENAI_API_KEY` / `OPENAI_BASE_URL` | Cloud embeddings |
 | `OLLAMA_HOST` | Default `http://127.0.0.1:11434` |
 | `WORKSPACE_KB_PORT` | Dashboard port (default `8787`) |
+| `WORKSPACE_KB_SKIP_SETUP` | `1` skips postinstall setup |
 
 ## License
 

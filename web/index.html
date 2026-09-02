@@ -13,7 +13,7 @@
         <h1>Token efficiency</h1>
         <p class="sub">
           Proxy metrics (<code>chars/4</code>): snippets returned vs full matched files.
-          Not LLM billing.
+          Not LLM billing. Hybrid search · incremental ingest · HTTP MCP.
         </p>
       </div>
       <div class="controls">
@@ -35,12 +35,34 @@
         <div class="control-actions">
           <button type="button" id="btnRestartMcp" class="btn primary">重启 MCP</button>
           <button type="button" id="btnSetup" class="btn">重新配置</button>
-          <button type="button" id="btnIngest" class="btn">重建索引</button>
+          <button type="button" id="btnIngest" class="btn">增量索引</button>
+          <button type="button" id="btnIngestFull" class="btn">全量索引</button>
           <button type="button" id="btnRestartServer" class="btn danger">重启看板</button>
         </div>
       </div>
       <div class="control-grid" id="controlStatus"></div>
       <p id="controlMsg" class="control-msg" hidden></p>
+    </section>
+
+    <section class="card health-panel">
+      <div class="control-head">
+        <div>
+          <h2>健康检查</h2>
+          <p class="hint">config · workspaceRoot · index · embed · MCP · 命中率</p>
+        </div>
+        <span id="healthBadge" class="badge-health">—</span>
+      </div>
+      <div class="health-list" id="healthList"></div>
+    </section>
+
+    <section class="card projects-panel">
+      <div class="control-head">
+        <div>
+          <h2>多项目</h2>
+          <p class="hint">本机已注册的 workspace-kb 实例（~/.workspace-kb/registry.json）</p>
+        </div>
+      </div>
+      <ul id="projectsList" class="list"></ul>
     </section>
 
     <p id="banner" class="banner warn" hidden></p>
@@ -65,6 +87,9 @@
       <article class="card span-2">
         <h2>Top queries</h2>
         <ul id="topQueries" class="list"></ul>
+        <h2 style="margin-top:18px">Feedback</h2>
+        <p class="hint">对检索结果点有用/没用，会调整路径加权</p>
+        <div id="feedbackSummary" class="meta"></div>
       </article>
       <article class="card span-3">
         <h2>Recent events</h2>
@@ -78,6 +103,7 @@
                 <th>Out</th>
                 <th>Saved</th>
                 <th>ms</th>
+                <th>FB</th>
               </tr>
             </thead>
             <tbody id="eventsBody"></tbody>

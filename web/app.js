@@ -6,9 +6,14 @@ const els = {
   btnRestartMcp: document.getElementById("btnRestartMcp"),
   btnSetup: document.getElementById("btnSetup"),
   btnIngest: document.getElementById("btnIngest"),
+  btnIngestFull: document.getElementById("btnIngestFull"),
   btnRestartServer: document.getElementById("btnRestartServer"),
   controlStatus: document.getElementById("controlStatus"),
   controlMsg: document.getElementById("controlMsg"),
+  healthBadge: document.getElementById("healthBadge"),
+  healthList: document.getElementById("healthList"),
+  projectsList: document.getElementById("projectsList"),
+  feedbackSummary: document.getElementById("feedbackSummary"),
   banner: document.getElementById("banner"),
   metaLine: document.getElementById("metaLine"),
   metrics: document.getElementById("metrics"),
@@ -29,26 +34,43 @@ els.daysSeg.addEventListener("click", (ev) => {
   void load();
 });
 
-els.refreshBtn.addEventListener("click", () => void load());
-
-els.refreshBtn.addEventListener("click", () => void load());
+els.refreshBtn.addEventListener("click", () => {
+  void load();
+  void loadControl();
+});
 els.btnRestartMcp.addEventListener("click", () => void runAction("restart-mcp"));
 els.btnSetup.addEventListener("click", () => void runAction("setup"));
-els.btnIngest.addEventListener("click", () => void runAction("ingest"));
+els.btnIngest.addEventListener("click", () => void runAction("ingest", { full: false }));
+els.btnIngestFull.addEventListener("click", () => void runAction("ingest", { full: true }));
 els.btnRestartServer.addEventListener("click", () => void runAction("restart-server"));
 
-async function runAction(name) {
+els.eventsBody.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-fb]");
+  if (!btn) return;
+  void sendFeedback({
+    useful: btn.dataset.fb === "up",
+    query: btn.dataset.query || "",
+    path: btn.dataset.path || "",
+    heading: btn.dataset.heading || "",
+  });
+});
+
+async function runAction(name, body = {}) {
   setControlMsg("执行中…");
-  for (const btn of [
+  const buttons = [
     els.btnRestartMcp,
     els.btnSetup,
     els.btnIngest,
+    els.btnIngestFull,
     els.btnRestartServer,
-  ]) {
-    btn.disabled = true;
-  }
+  ];
+  for (const btn of buttons) btn.disabled = true;
   try {
-    const res = await fetch(`/api/actions/${name}`, { method: "POST" });
+    const res = await fetch(`/api/actions/${name}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     const data = await res.json();
     if (!res.ok || data.ok === false) {
       throw new Error(data.error || data.message || `HTTP ${res.status}`);
@@ -60,22 +82,28 @@ async function runAction(name) {
     }
     setControlMsg(data.message || "完成", false);
     await loadControl();
-    if (name === "ingest") {
-      pollIngest();
-    } else {
-      void load();
-    }
+    if (name === "ingest") pollIngest();
+    else void load();
   } catch (err) {
     setControlMsg(err instanceof Error ? err.message : String(err), true);
   } finally {
-    for (const btn of [
-      els.btnRestartMcp,
-      els.btnSetup,
-      els.btnIngest,
-      els.btnRestartServer,
-    ]) {
-      btn.disabled = false;
-    }
+    for (const btn of buttons) btn.disabled = false;
+  }
+}
+
+async function sendFeedback(payload) {
+  try {
+    const res = await fetch("/api/actions/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || data.ok === false) throw new Error(data.error || "feedback failed");
+    setControlMsg(payload.useful ? "已标记有用" : "已标记没用", false);
+    await loadControl();
+  } catch (err) {
+    setControlMsg(err instanceof Error ? err.message : String(err), true);
   }
 }
 
@@ -93,23 +121,72 @@ async function loadControl() {
   const mcp = data.mcp || {};
   const setup = data.setup || {};
   const ingest = data.ingest || {};
+  const health = data.health || {};
+  const usage = health.usage || {};
+
   els.controlStatus.innerHTML = [
     stat("MCP 会话", String(mcp.sessions ?? "—"), ""),
     stat("索引", kb.ready ? `${kb.chunkCount || 0} chunks` : "未就绪", kb.ready ? "ok" : "bad"),
     stat("Workspace", kb.workspaceRoot || setup.workspaceRoot || "—", kb.ready ? "ok" : "bad"),
     stat(
+      "命中率",
+      usage.hitRate == null ? "—" : `${Math.round(usage.hitRate * 100)}%`,
+      usage.hitRate == null ? "" : usage.hitRate >= 0.3 ? "ok" : "bad",
+    ),
+    stat(
       "Ingest",
       ingest.running ? "运行中…" : ingest.error ? `失败: ${ingest.error}` : "空闲",
       ingest.running ? "" : ingest.error ? "bad" : "ok",
     ),
-    stat("MCP URL", setup.serverId ? `/${setup.serverId} → /mcp` : "—", ""),
     stat("重启次数", String(mcp.restartCount ?? 0), ""),
   ].join("");
+
   els.btnIngest.disabled = Boolean(ingest.running);
+  els.btnIngestFull.disabled = Boolean(ingest.running);
+
+  renderHealth(health);
+  renderProjects(data.projects || []);
+  const fb = data.feedback || {};
+  els.feedbackSummary.textContent = fb.total
+    ? `有用 ${fb.useful} · 没用 ${fb.useless} · 好评率 ${
+        fb.usefulRate == null ? "—" : `${Math.round(fb.usefulRate * 100)}%`
+      }`
+    : "尚无反馈 — 在 Recent events 右侧点 👍/👎";
 }
 
-function stat(label, value, tone) {
-  return `<div class="control-stat"><div class="k">${escapeHtml(label)}</div><div class="v ${tone}">${escapeHtml(value)}</div></div>`;
+function renderHealth(health) {
+  const ok = health.ok;
+  els.healthBadge.textContent = ok ? "HEALTHY" : "CHECK";
+  els.healthBadge.className = `badge-health ${ok ? "ok" : "bad"}`;
+  const checks = health.checks || [];
+  els.healthList.innerHTML = checks.length
+    ? checks
+        .map(
+          (c) => `<div class="health-row ${c.ok ? "ok" : "bad"}">
+            <strong>${escapeHtml(c.id)}</strong>
+            <span>${escapeHtml(c.detail || "")}</span>
+            ${c.hint ? `<em>${escapeHtml(c.hint)}</em>` : ""}
+          </div>`,
+        )
+        .join("")
+    : `<div class="empty">No health data</div>`;
+}
+
+function renderProjects(projects) {
+  els.projectsList.innerHTML = projects.length
+    ? projects
+        .map((p) => {
+          const badge = p.running ? "running" : "stopped";
+          return `<li>
+            <span title="${escapeAttr(p.workspaceRoot || "")}">${escapeHtml(p.name || p.id)}</span>
+            <span>
+              <a href="${escapeAttr(p.dashboardUrl || "#")}" target="_blank" rel="noreferrer">:${p.port}</a>
+              · <span class="badge ${badge === "running" ? "search" : "fail"}">${badge}</span>
+            </span>
+          </li>`;
+        })
+        .join("")
+    : `<li class="empty" style="display:block;background:transparent">暂无注册项目 — serve/start 后自动登记</li>`;
 }
 
 function pollIngest() {
@@ -126,6 +203,10 @@ function pollIngest() {
       );
     }
   }, 2000);
+}
+
+function stat(label, value, tone) {
+  return `<div class="control-stat"><div class="k">${escapeHtml(label)}</div><div class="v ${tone}">${escapeHtml(value)}</div></div>`;
 }
 
 function fmt(n) {
@@ -226,12 +307,21 @@ async function load() {
         }`
       : "Index meta not found — run workspace-kb ingest";
 
+    const hitPct =
+      s.hitRate == null ? "—" : `${Math.round(Number(s.hitRate) * 100)}%`;
+
     els.metrics.innerHTML = [
       metricCard(
         "Calls",
         fmt(s.events),
         `search ${s.searchCount || 0} · read ${s.readCount || 0}`,
         "var(--accent)",
+      ),
+      metricCard(
+        "Hit rate",
+        hitPct,
+        `empty ${s.emptySearchCount || 0} · hit ${s.hitSearchCount || 0}`,
+        "var(--orange)",
       ),
       metricCard(
         "Est. returned tokens",
@@ -242,14 +332,8 @@ async function load() {
       metricCard(
         "Est. saved tokens",
         fmt(s.estTokensSaved),
-        "snippet vs full file",
+        `avg ${s.avgHits ?? "—"} hits · ${s.avgLatencyMs ?? "—"}ms`,
         "var(--green)",
-      ),
-      metricCard(
-        "Avg hits / latency",
-        `${s.avgHits ?? "—"} / ${s.avgLatencyMs ?? "—"}ms`,
-        `ok ${s.okCount || 0} · fail ${s.failCount || 0}`,
-        "var(--orange)",
       ),
     ].join("");
 
@@ -273,12 +357,11 @@ async function load() {
       ? recent
           .map((ev) => {
             const badge =
-              ev.ok === false
-                ? "fail"
-                : ev.op === "read"
-                  ? "read"
-                  : "search";
+              ev.ok === false ? "fail" : ev.op === "read" ? "read" : "search";
             const label = ev.ok === false ? "fail" : ev.op || "?";
+            const q = escapeAttr(ev.query || "");
+            const p = escapeAttr(ev.path || "");
+            const h = escapeAttr(ev.heading || "");
             return `<tr>
               <td>${formatTs(ev.ts)}</td>
               <td><span class="badge ${badge}">${label}</span></td>
@@ -286,10 +369,14 @@ async function load() {
               <td>${fmt(ev.est_tokens_returned)}</td>
               <td class="saved">${fmt(ev.est_tokens_saved)}</td>
               <td>${ev.latency_ms ?? "—"}</td>
+              <td class="fb-cell">
+                <button type="button" class="fb" data-fb="up" data-query="${q}" data-path="${p}" data-heading="${h}" title="有用">👍</button>
+                <button type="button" class="fb" data-fb="down" data-query="${q}" data-path="${p}" data-heading="${h}" title="没用">👎</button>
+              </td>
             </tr>`;
           })
           .join("")
-      : `<tr><td colspan="6" class="empty">No events</td></tr>`;
+      : `<tr><td colspan="7" class="empty">No events</td></tr>`;
 
     els.footPath.textContent = `${s.logPath || ""} · ${data.dataDir || ""}`;
   } catch (err) {

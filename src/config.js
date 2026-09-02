@@ -56,6 +56,9 @@ export function loadRuntimeConfig() {
     fileCfg.model ||
     "bge-m3";
 
+  const setup =
+    fileCfg.setup && typeof fileCfg.setup === "object" ? fileCfg.setup : {};
+
   _resolved = {
     configPath: configPath || null,
     workspaceRoot,
@@ -63,10 +66,22 @@ export function loadRuntimeConfig() {
     dbDir: path.join(dataDir, "lancedb"),
     metaPath: path.join(dataDir, "meta.json"),
     usagePath: path.join(dataDir, "usage.jsonl"),
+    feedbackPath: path.join(dataDir, "feedback.jsonl"),
     cacheDir: path.join(dataDir, "cache"),
     tableName: "chunks",
+    setup,
     ollamaHost:
       process.env.OLLAMA_HOST || fileCfg.ollamaHost || "http://127.0.0.1:11434",
+    embedProvider:
+      process.env.WORKSPACE_KB_EMBED_PROVIDER ||
+      fileCfg.embedProvider ||
+      "ollama",
+    openaiApiKey:
+      process.env.OPENAI_API_KEY || fileCfg.openaiApiKey || "",
+    openaiBaseUrl:
+      process.env.OPENAI_BASE_URL ||
+      fileCfg.openaiBaseUrl ||
+      "https://api.openai.com/v1",
     modelId,
     embedDim: Number(
       process.env.WORKSPACE_KB_DIM ||
@@ -82,6 +97,20 @@ export function loadRuntimeConfig() {
     readMaxChars: Number(fileCfg.readMaxChars || 4000),
     defaultSearchLimit: Number(fileCfg.defaultSearchLimit || 6),
     vectorCandidates: Number(fileCfg.vectorCandidates || 24),
+    hybridVectorWeight: Number(fileCfg.hybridVectorWeight ?? 0.65),
+    hybridLexicalWeight: Number(fileCfg.hybridLexicalWeight ?? 0.35),
+    kindBoost: fileCfg.kindBoost || {
+      skill: 0.08,
+      agents: 0.06,
+      architecture: 0.05,
+      wiki: 0.03,
+    },
+    synonyms:
+      fileCfg.synonyms && typeof fileCfg.synonyms === "object"
+        ? fileCfg.synonyms
+        : {},
+    rewriteQuery: fileCfg.rewriteQuery !== false,
+    incremental: fileCfg.incremental !== false,
     paths: Array.isArray(fileCfg.paths)
       ? fileCfg.paths
       : [".agents", "docs", "openwiki", "*.md"],

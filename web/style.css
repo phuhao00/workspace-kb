@@ -203,6 +203,80 @@ h1 {
   color: var(--red);
 }
 
+.health-panel,
+.projects-panel {
+  margin-bottom: 16px;
+}
+
+.badge-health {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.badge-health.ok {
+  color: var(--green);
+  border-color: rgba(61, 214, 140, 0.35);
+  background: rgba(61, 214, 140, 0.08);
+}
+
+.badge-health.bad {
+  color: var(--orange);
+  border-color: rgba(255, 176, 32, 0.35);
+  background: rgba(255, 176, 32, 0.08);
+}
+
+.health-list {
+  display: grid;
+  gap: 8px;
+}
+
+.health-row {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 13px;
+}
+
+.health-row.ok {
+  border-color: rgba(61, 214, 140, 0.2);
+}
+
+.health-row.bad {
+  border-color: rgba(255, 92, 92, 0.25);
+}
+
+.health-row em {
+  color: var(--orange);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.fb-cell {
+  white-space: nowrap;
+}
+
+.fb {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.7;
+  font-size: 12px;
+  padding: 0 2px;
+}
+
+.fb:hover {
+  opacity: 1;
+}
+
 .metrics {
   display: grid;
   gap: 12px;

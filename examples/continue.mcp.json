@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "workspace-kb": {
+      "url": "http://127.0.0.1:8787/mcp"
+    }
+  },
+  "_comment": "Merge into ~/.continue/config.json (Continue.dev). Keep `npx workspace-kb start` running."
+}

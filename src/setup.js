@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { registerProject } from "./daemon.js";
 
 const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MARKER_START = "<!-- WORKSPACE-KB:START -->";
 const MARKER_END = "<!-- WORKSPACE-KB:END -->";
 
 /**
- * @param {{ startDir?: string, quiet?: boolean }} [options]
+ * @param {{ startDir?: string, quiet?: boolean, preferInitCwd?: boolean }} [options]
  */
 export function runSetup(options = {}) {
   const resolved = resolveWorkspaceForSetup(options.startDir, {
@@ -36,10 +37,24 @@ export function runSetup(options = {}) {
     setupCfg,
   );
   const ruleResult = writeCursorRule(workspaceRoot, serverId, setupCfg);
+  const skillResult = writeCursorSkill(workspaceRoot, serverId, setupCfg);
+  const continueResult = writeContinueConfig(
+    workspaceRoot,
+    configPath,
+    serverId,
+    dashboardPort,
+    setupCfg,
+  );
 
   let agentsResult = { agentsMd: "skipped" };
   if (setupCfg.agentsMd !== false) {
     agentsResult = patchAgentsMd(workspaceRoot, serverId, dashboardPort);
+  }
+
+  try {
+    registerProject({ port: dashboardPort });
+  } catch {
+    // optional
   }
 
   const result = {
@@ -48,7 +63,10 @@ export function runSetup(options = {}) {
     configPath,
     serverId,
     mcpPath: mcpResult.mcpPath,
+    mcpMode: mcpResult.mcpMode,
     cursorRule: ruleResult.cursorRule,
+    cursorSkill: skillResult.cursorSkill,
+    continueConfig: continueResult.continueConfig,
     agentsMd: agentsResult.agentsMd,
     dashboardPort,
   };
@@ -168,10 +186,89 @@ alwaysApply: true
 - **Must** call MCP \`kb_search\` first for architecture, routing, ops runbooks, symptoms, or "where is X" — then \`kb_read\` one heading, then \`rg\` in the cited repo only.
 - Do **not** open large guides or scan every child repo before searching the KB index.
 - Source code beats stale docs; KB is for finding the right doc/repo quickly.
-- MCP env pins \`WORKSPACE_KB_CONFIG\`; if \`kb_status\` shows wrong \`workspaceRoot\`, restart MCP in Cursor Settings.
+- Prefer HTTP MCP via \`npx workspace-kb start\` / dashboard \`/mcp\`. If \`kb_status\` shows wrong \`workspaceRoot\`, restart MCP from the dashboard.
 `;
   fs.writeFileSync(rulePath, body, "utf8");
   return { cursorRule: "written", rulePath };
+}
+
+function writeCursorSkill(workspaceRoot, serverId, setupCfg) {
+  if (setupCfg.cursorSkill === false) {
+    return { cursorSkill: "skipped" };
+  }
+  const skillDir = path.join(workspaceRoot, ".cursor", "skills", "query-workspace-kb");
+  fs.mkdirSync(skillDir, { recursive: true });
+  const skillPath = path.join(skillDir, "SKILL.md");
+  const body = `---
+name: query-workspace-kb
+description: >-
+  Search the local workspace-kb LanceDB index for architecture, ops, routing,
+  and skill snippets before reading large docs or scanning repos. Use when
+  locating a service, diagnosing a symptom, or answering architecture/ops
+  questions.
+---
+
+# Query workspace knowledge (\`${serverId}\`)
+
+1. Call \`kb_search\` with task nouns (repo, symptom, API, hop). Limit 6–8.
+2. Open only the cited path + heading via \`kb_read\` or a targeted file range.
+3. Then \`rg\` inside the returned repo only. Do not scan the whole workspace.
+4. If MCP is unavailable: \`npx workspace-kb search -- "<query>"\`.
+5. Source code wins over stale wiki/docs. This index is not a source-code search.
+
+Empty index: \`npx workspace-kb ingest\` (needs Ollama or openai embed provider).
+
+Dashboard: \`npx workspace-kb start\` then open the printed URL. Use **重启 MCP** there.
+
+## Examples
+
+\`\`\`text
+kb_search query="payment failure"
+kb_search query="login token"
+npx workspace-kb search "architecture overview"
+npx workspace-kb stats
+\`\`\`
+`;
+  fs.writeFileSync(skillPath, body, "utf8");
+  return { cursorSkill: "written", skillPath };
+}
+
+function writeContinueConfig(workspaceRoot, configPath, serverId, dashboardPort, setupCfg) {
+  if (setupCfg.continueConfig === false) {
+    return { continueConfig: "skipped" };
+  }
+  const contDir = path.join(workspaceRoot, ".continue");
+  fs.mkdirSync(contDir, { recursive: true });
+  const mcpMode = String(setupCfg.mcpMode || "http").toLowerCase();
+  const mcpServers =
+    mcpMode === "stdio"
+      ? {
+          [serverId]: {
+            command: "node",
+            args: [toJsonPath(path.join(PKG_ROOT, "src", "mcp.js"))],
+            env: {
+              WORKSPACE_KB_CONFIG: toJsonPath(configPath),
+              WORKSPACE_ROOT: toJsonPath(workspaceRoot),
+            },
+          },
+        }
+      : {
+          [serverId]: {
+            url: `http://127.0.0.1:${dashboardPort}/mcp`,
+          },
+        };
+  const doc = {
+    // Continue.dev MCP-style snippet (merge into your config as needed)
+    name: "workspace-kb",
+    mcpServers,
+    docs: [
+      "Install Continue, then merge mcpServers into ~/.continue/config.json",
+      "Keep `npx workspace-kb start` running when using HTTP MCP",
+    ],
+  };
+  const outPath = path.join(contDir, "workspace-kb.mcp.json");
+  fs.writeFileSync(outPath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
+  return { continueConfig: "written", path: outPath };
 }
 
 function renderAgentsBlock(serverId, dashboardPort) {

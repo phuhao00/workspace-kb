@@ -80,6 +80,8 @@ export function summarizeUsage(options = {}) {
   let okCount = 0;
   let failCount = 0;
   let hitSum = 0;
+  let emptySearchCount = 0;
+  let hitSearchCount = 0;
   let returnedTokens = 0;
   let fullTokens = 0;
   let savedTokens = 0;
@@ -95,7 +97,10 @@ export function summarizeUsage(options = {}) {
     }
     if (r.op === "search") {
       searchCount += 1;
-      hitSum += Number(r.hit_count) || 0;
+      const hits = Number(r.hit_count) || 0;
+      hitSum += hits;
+      if (hits > 0) hitSearchCount += 1;
+      else emptySearchCount += 1;
       const q = String(r.query || "").trim();
       if (q) {
         queryCounts.set(q, (queryCounts.get(q) || 0) + 1);
@@ -126,6 +131,12 @@ export function summarizeUsage(options = {}) {
     events: rows.length,
     searchCount,
     readCount,
+    emptySearchCount,
+    hitSearchCount,
+    hitRate:
+      searchCount === 0
+        ? null
+        : Number((hitSearchCount / searchCount).toFixed(3)),
     okCount,
     failCount,
     avgHits: searchCount === 0 ? 0 : Number((hitSum / searchCount).toFixed(2)),

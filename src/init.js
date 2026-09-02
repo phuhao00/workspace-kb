@@ -75,7 +75,37 @@ Index curated markdown (docs / skills / wiki), not your full source tree.
 `,
       "utf8",
     );
-    created.push("docs/kb-getting-started.md");
+    "created.push("docs/kb-getting-started.md");
+  }
+
+  const zhGuide = path.join(docsDir, "kb-getting-started.zh-CN.md");
+  if (!fs.existsSync(zhGuide) || opts.force) {
+    fs.writeFileSync(
+      zhGuide,
+      `# workspace-kb 快速开始
+
+索引精选 Markdown（docs / skills / wiki），不要扫全仓源码。
+
+## 流程
+
+1. \`npx workspace-kb ingest\`
+2. \`npx workspace-kb start\`（后台看板 + HTTP MCP）
+3. 在 Cursor 问架构问题——应先调用 \`kb_search\`。
+
+## 中文索引建议
+
+- 根配置 \`paths\` 保留 \`*.md\`，可收录 \`README.md\` / \`README.zh-CN.md\`
+- 文档用清晰的中文 \`##\` 标题，便于按节 \`kb_read\`
+- 在 \`synonyms\` 里补充业务口语（如「登不进」「充值未到账」）
+
+## 提示
+
+- HTTP MCP 需保持 \`serve\`/\`start\` 运行
+- 看板可重启 MCP、重建索引
+`,
+      "utf8",
+    );
+    created.push("docs/kb-getting-started.zh-CN.md");
   }
 
   const gitignore = path.join(root, ".gitignore");

@@ -1,5 +1,7 @@
 # workspace-kb
 
+> English · [中文文档](./README.zh-CN.md)
+
 Local [LanceDB](https://github.com/lancedb/lancedb) knowledge base for **agent-friendly** markdown workspaces.
 
 Index curated docs / skills / wiki — **not** your full source tree. Agents use **MCP** (`kb_search` → `kb_read`); scripts use the **CLI**. Search returns short snippets; reads open one heading.
@@ -227,6 +229,12 @@ npx workspace-kb projects
 ```
 
 Prefer **project-local** `.cursor/mcp.json`. Examples: [`examples/multi-a`](examples/multi-a), [`examples/multi-b`](examples/multi-b), [`examples/multi-project.mcp.json`](examples/multi-project.mcp.json).
+
+### Indexing Chinese docs
+
+- Keep `"*.md"` in `paths` so root `README.md` / `README.zh-CN.md` are ingested.
+- Prefer clear Chinese `##` headings under `docs/` for `kb_read`.
+- Add spoken symptoms to `synonyms` (e.g. 登不进, 充值未到账). Full guide: [README.zh-CN.md](./README.zh-CN.md).
 
 ## Cursor / agent tips
 

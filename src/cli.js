@@ -52,12 +52,22 @@ async function main(cmd, args) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return;
     }
+    case "serve":
+    case "dashboard": {
+      const { startDashboard } = await import("./dashboard.js");
+      const port = parsePort(args);
+      await startDashboard({ port });
+      // keep process alive
+      await new Promise(() => {});
+      return;
+    }
     default:
       throw new Error(
-        "usage: workspace-kb <ingest|search|read|status|stats>\n" +
+        "usage: workspace-kb <ingest|search|read|status|stats|serve>\n" +
           '  search "<query>" [--limit 6] [--kind skill] [--repo my-service]\n' +
           "  read <path> [heading]\n" +
-          "  stats [--days 7]",
+          "  stats [--days 7]\n" +
+          "  serve [--port 8787]",
       );
   }
 }
@@ -91,4 +101,13 @@ function parseDays(args) {
     }
   }
   return 7;
+}
+
+function parsePort(args) {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--port") {
+      return args[++i];
+    }
+  }
+  return undefined;
 }

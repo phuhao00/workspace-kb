@@ -122,6 +122,7 @@ export function summarizeUsage(options = {}) {
     note: "Proxy metrics (chars/4). Not LLM billing tokens.",
     days,
     logPath: path.relative(cfg.workspaceRoot, cfg.usagePath) || cfg.usagePath,
+    logExists: fs.existsSync(cfg.usagePath),
     events: rows.length,
     searchCount,
     readCount,
@@ -134,6 +135,106 @@ export function summarizeUsage(options = {}) {
     avgLatencyMs: latencyN === 0 ? null : Math.round(latencySum / latencyN),
     topQueries,
   };
+}
+
+/**
+ * @param {{ days?: number, recent?: number }} [options]
+ */
+export function getUsageDashboard(options = {}) {
+  const cfg = loadRuntimeConfig();
+  const days = clampDays(options.days, 7);
+  const recentLimit = Math.min(100, Math.max(1, Number(options.recent) || 40));
+  const allRows = readUsageRows(cfg.usagePath);
+  const cutoff = Date.now() - days * 86400_000;
+  const filtered = allRows.filter((r) => {
+    const t = Date.parse(r.ts);
+    return Number.isFinite(t) && t >= cutoff;
+  });
+  const recent = [...filtered]
+    .sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts))
+    .slice(0, recentLimit);
+
+  let meta = null;
+  try {
+    if (fs.existsSync(cfg.metaPath)) {
+      meta = JSON.parse(fs.readFileSync(cfg.metaPath, "utf8"));
+    }
+  } catch {
+    meta = null;
+  }
+
+  return {
+    ok: true,
+    summary: summarizeUsage({ days }),
+    trend: buildDailyTrend(allRows, days),
+    recent,
+    meta: meta
+      ? {
+          exists: true,
+          modelId: meta.modelId,
+          embedDim: meta.embedDim,
+          ingestedAt: meta.ingestedAt,
+          chunkCount: meta.chunkCount,
+          fileCount: meta.fileCount,
+          byKind: meta.byKind || {},
+        }
+      : { exists: false },
+    workspaceRoot: cfg.workspaceRoot,
+    dataDir: cfg.dataDir,
+    configPath: cfg.configPath,
+  };
+}
+
+function buildDailyTrend(rows, days) {
+  const dayKeys = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400_000);
+    dayKeys.push(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(d),
+    );
+  }
+  const map = new Map();
+  for (const day of dayKeys) {
+    map.set(day, {
+      day,
+      search: 0,
+      read: 0,
+      fail: 0,
+      estTokensReturned: 0,
+      estTokensSaved: 0,
+    });
+  }
+  const cutoff = Date.now() - days * 86400_000;
+  for (const r of rows) {
+    const t = Date.parse(r.ts);
+    if (!Number.isFinite(t) || t < cutoff) continue;
+    const day = beijingDay(String(r.ts));
+    if (!day || !map.has(day)) continue;
+    const point = map.get(day);
+    if (r.op === "search") point.search += 1;
+    else if (r.op === "read") point.read += 1;
+    if (r.ok === false) point.fail += 1;
+    point.estTokensReturned += Number(r.est_tokens_returned) || 0;
+    point.estTokensSaved += Number(r.est_tokens_saved) || 0;
+  }
+  return dayKeys.map((d) => map.get(d));
+}
+
+function beijingDay(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(t));
 }
 
 function readUsageRows(usageFile) {

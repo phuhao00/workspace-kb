@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>workspace-kb · Token efficiency</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <p class="eyebrow">workspace-kb</p>
+        <h1>Token efficiency</h1>
+        <p class="sub">
+          Proxy metrics (<code>chars/4</code>): snippets returned vs full matched files.
+          Not LLM billing.
+        </p>
+      </div>
+      <div class="controls">
+        <div class="seg" id="daysSeg" role="group" aria-label="days">
+          <button type="button" data-days="7" class="active">7d</button>
+          <button type="button" data-days="14">14d</button>
+          <button type="button" data-days="30">30d</button>
+        </div>
+        <button type="button" id="refreshBtn" class="btn">Refresh</button>
+      </div>
+    </header>
+
+    <p id="banner" class="banner warn" hidden></p>
+    <p id="metaLine" class="meta"></p>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="grid-2">
+      <article class="card">
+        <h2>Daily calls</h2>
+        <p class="hint">search / read (Asia/Shanghai)</p>
+        <div id="chartCalls" class="chart"></div>
+      </article>
+      <article class="card">
+        <h2>Daily estimated tokens</h2>
+        <p class="hint">returned vs saved (proxy)</p>
+        <div id="chartTokens" class="chart"></div>
+      </article>
+    </section>
+
+    <section class="grid-5">
+      <article class="card span-2">
+        <h2>Top queries</h2>
+        <ul id="topQueries" class="list"></ul>
+      </article>
+      <article class="card span-3">
+        <h2>Recent events</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Op</th>
+                <th>Detail</th>
+                <th>Out</th>
+                <th>Saved</th>
+                <th>ms</th>
+              </tr>
+            </thead>
+            <tbody id="eventsBody"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <footer class="foot">
+      <span id="footPath"></span>
+      <a href="https://github.com/phuhao00/workspace-kb" target="_blank" rel="noreferrer"
+        >github.com/phuhao00/workspace-kb</a
+      >
+    </footer>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

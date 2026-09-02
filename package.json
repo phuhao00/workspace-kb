@@ -1,6 +1,6 @@
 {
   "name": "workspace-kb",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Local LanceDB markdown knowledge base for agent workflows (Cursor MCP + CLI). Arbitrary dashboard ports; project memory; hybrid search.",
   "type": "module",
   "bin": {

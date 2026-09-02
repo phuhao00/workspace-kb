@@ -38,21 +38,19 @@ ollama pull bge-m3
 npx workspace-kb init
 npm install
 npx workspace-kb ingest
-npx workspace-kb start              # background dashboard + HTTP MCP
-# open http://127.0.0.1:8787/
+# one command: sync MCP/port config + start dashboard
+npx workspace-kb up --port 8700
+# open http://127.0.0.1:8700/
 npx workspace-kb search "payment failure"
-npx workspace-kb memory list
-npx workspace-kb health
+npx workspace-kb down
 ```
 
 Existing project:
 
 ```bash
-npm install github:phuhao00/workspace-kb
-# ensure workspace-kb.config.json at repo root
-npx workspace-kb setup
-npx workspace-kb ingest
-npx workspace-kb start --port 8787
+npm install github:phuhao00/workspace-kb#master   # pin #master — old builds lack up/start
+npx workspace-kb up --port 8700
+# first time / big doc changes: npx workspace-kb up --port 8700 --ingest
 ```
 
 ## Install / upgrade
@@ -82,30 +80,16 @@ After upgrade: **restart `start`/`serve`**, then click **重启 MCP** on the das
 ```text
 workspace-kb <command>
 
+  up [--port <n|auto>] [--ingest|--full]   # ★ one-shot: sync MCP/config + start
+  down [--port <n>]                        # ★ stop (alias of stop)
   init [--force] [--name app] [--port <n>]
-  setup [--port <n>]            # MCP + rules + skill; any port
-  ingest [--full]               # incremental by default
-  search "<query>" [--limit 6] [--kind skill] [--repo my-service]
-  read <path> [heading]
-  status | health | stats [--days 7]
+  setup [--port <n>]            # write MCP/rules only
+  ingest [--full]
   start | stop | serve [--port <1-65535|auto>]
-  projects                      # list ~/.workspace-kb/registry.json
-  feedback [--bad] <note>
-  memory put|search|list|delete|prune   # project ops facts (see below)
+  search | read | status | health | stats | projects | memory | feedback
 ```
 
-Port resolution: `--port` → `WORKSPACE_KB_PORT` → `setup.dashboardPort` → registry → default `8787` (fallback only — **any free port works**).
-
-Examples:
-
-```bash
-npx workspace-kb ingest --full
-npx workspace-kb search "充值未到账" --limit 8
-npx workspace-kb memory put "staging hallapi HTTP :8080" --key staging-hallapi --tags ops,test-env
-npx workspace-kb start --port 19090
-npx workspace-kb stop                 # uses config/registry port
-npx workspace-kb projects
-```
+Day-to-day: just `up` / `down`. `start` also syncs MCP on port change; `up` combines setup+start.
 
 ## Dashboard
 

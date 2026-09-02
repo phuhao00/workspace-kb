@@ -81,7 +81,51 @@ async function main(cmd, args) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return;
     }
-    case "stop": {
+    case "up": {
+      // One-shot: sync MCP/config to port → background dashboard
+      const port = parsePort(args);
+      const ingestFirst = args.includes("--ingest") || args.includes("--full");
+      const full = args.includes("--full");
+      if (ingestFirst) {
+        const meta = await ingest({ full });
+        process.stderr.write(
+          `ingest: ${meta.chunkCount || 0} chunks · ${meta.fileCount || 0} files\n`,
+        );
+      }
+      const { runSetup } = await import("./setup.js");
+      const { resetRuntimeConfig } = await import("./config.js");
+      const setup = runSetup({ port, quiet: true });
+      resetRuntimeConfig();
+      if (setup.ok === false) {
+        process.stdout.write(`${JSON.stringify({ ok: false, step: "setup", setup }, null, 2)}\n`);
+        process.exitCode = 1;
+        return;
+      }
+      const { startDaemon } = await import("./daemon.js");
+      const started = await startDaemon({
+        port: port !== undefined ? port : setup.dashboardPort,
+      });
+      const out = {
+        ok: Boolean(started.ok),
+        command: "up",
+        port: started.port,
+        dashboardUrl: started.dashboardUrl,
+        mcpUrl: started.mcpUrl,
+        alreadyRunning: started.alreadyRunning,
+        setup: {
+          ok: setup.ok,
+          dashboardPort: setup.dashboardPort,
+          mcpPath: setup.mcpPath,
+          serverId: setup.serverId,
+        },
+        hint: "Reload Cursor MCP if the IDE still points at an old port.",
+      };
+      process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+      if (!out.ok) process.exitCode = 1;
+      return;
+    }
+    case "stop":
+    case "down": {
       const { stopDaemon } = await import("./daemon.js");
       const port = parsePort(args);
       const result = stopDaemon({ port });
@@ -173,17 +217,15 @@ async function main(cmd, args) {
     }
     default:
       throw new Error(
-        "usage: workspace-kb <ingest|search|read|status|health|stats|serve|start|stop|projects|setup|init|feedback|memory>\n" +
-          "  ingest [--full]\n" +
-          '  search "<query>" [--limit 6] [--kind skill] [--repo my-service]\n' +
-          "  read <path> [heading]\n" +
-          "  start|stop|serve [--port <1-65535|auto>]\n" +
-          "  init [--force] [--name my-app] [--port <n>]\n" +
-          "  setup [--port <n>]   # write MCP/rules; port from CLI or setup.dashboardPort\n" +
-          "  feedback [--bad] <query note>\n" +
-          '  memory put|search|list|delete|prune  # project ops facts (Cursor+Codex+CLI)\n' +
-          "\nPort resolution: --port > WORKSPACE_KB_PORT > setup.dashboardPort > registry > 8787 default.\n" +
-          "Any free TCP port 1–65535 works; 8787/8788 are examples only.",
+        "usage: workspace-kb <up|down|ingest|search|…>\n" +
+          "\n" +
+          "Everyday (one command):\n" +
+          "  up   [--port <n|auto>] [--ingest|--full]  # sync MCP+config, start dashboard\n" +
+          "  down [--port <n>]                         # stop (alias of stop)\n" +
+          "\n" +
+          "Also: start|stop|serve|setup|init|projects|health|status|stats|search|read|memory|feedback\n" +
+          "Port: --port > WORKSPACE_KB_PORT > setup.dashboardPort > registry > 8787\n" +
+          "Upgrade if `up`/`start` missing: npm i github:phuhao00/workspace-kb#master",
       );
   }
 }

@@ -40,21 +40,19 @@ ollama pull bge-m3
 npx workspace-kb init
 npm install
 npx workspace-kb ingest
-npx workspace-kb start              # 后台看板 + HTTP MCP
-# 打开 http://127.0.0.1:8787/
+# 一键：写 MCP/端口配置 + 后台启动看板
+npx workspace-kb up --port 8700
+# 打开 http://127.0.0.1:8700/
 npx workspace-kb search "充值未到账"
-npx workspace-kb memory list
-npx workspace-kb health
+npx workspace-kb down          # 停止
 ```
 
 已有项目：
 
 ```bash
-npm install github:phuhao00/workspace-kb
-# 确保仓库根目录有 workspace-kb.config.json
-npx workspace-kb setup
-npx workspace-kb ingest
-npx workspace-kb start --port 8787
+npm install github:phuhao00/workspace-kb#master   # 务必 #master，旧版没有 up/start
+npx workspace-kb up --port 8700                  # 同步配置并启动
+# 首次或文档大改：npx workspace-kb up --port 8700 --ingest
 ```
 
 ## 安装 / 升级
@@ -84,30 +82,16 @@ npm install github:phuhao00/workspace-kb#master
 ```text
 workspace-kb <命令>
 
+  up [--port <n|auto>] [--ingest|--full]   # ★ 一键：同步 MCP/config + 启动
+  down [--port <n>]                        # ★ 停止（同 stop）
   init [--force] [--name 应用名] [--port <n>]
-  setup [--port <n>]            # 写入 MCP / 规则 / Skill；端口可任意
-  ingest [--full]               # 默认增量；--full 全量重建
-  search "<查询>" [--limit 6] [--kind skill] [--repo 子仓名]
-  read <路径> [标题]
-  status | health | stats [--days 7]
+  setup [--port <n>]            # 只写 MCP / 规则（不启动）
+  ingest [--full]
   start | stop | serve [--port <1-65535|auto>]
-  projects                      # 列出 ~/.workspace-kb/registry.json
-  feedback [--bad] <备注>
-  memory put|search|list|delete|prune   # 项目运维事实（见下文）
+  search | read | status | health | stats | projects | memory | feedback
 ```
 
-端口解析：`--port` → `WORKSPACE_KB_PORT` → `setup.dashboardPort` → registry → 默认 `8787`（仅缺省值，**任意空闲端口均可**）。
-
-示例：
-
-```bash
-npx workspace-kb ingest --full
-npx workspace-kb search "充值未到账" --limit 8
-npx workspace-kb memory put "测服 hallapi HTTP :8080" --key fish37-hallapi --tags ops,test-env
-npx workspace-kb start --port 19090
-npx workspace-kb stop                 # 按配置端口停止，不必写死 8787
-npx workspace-kb projects
-```
+多数时候只需：`up` / `down`。`start` 也会在换端口时同步 MCP；`up` 把 setup+start 合成一步。
 
 ## 看板（Dashboard）
 

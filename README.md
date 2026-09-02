@@ -327,13 +327,15 @@ Resolution order: `--port` → `WORKSPACE_KB_PORT` → `setup.dashboardPort` →
 # pin any port in config:
 # "setup": { "dashboardPort": 19090 }
 
-npx workspace-kb start                  # config port
-npx workspace-kb start --port 19091     # one-shot override
-npx workspace-kb start --port auto      # OS-assigned free port
+npx workspace-kb start                  # config port (also syncs MCP URL)
+npx workspace-kb start --port 19091     # override + rewrite config + `.cursor/mcp.json`
+npx workspace-kb start --port auto      # OS free port + sync bindings
 npx workspace-kb stop                   # stops config/registry port
-npx workspace-kb setup --port 19090     # rewrite MCP URL + persist config
+npx workspace-kb setup --port 19090     # rewrite MCP URL + persist config only
 npx workspace-kb projects
 ```
+
+`start` / `serve` sync after the listen port is chosen: `setup.dashboardPort`, `.cursor/mcp.json`, and `.continue/workspace-kb.mcp.json`.
 
 Prefer **project-local** `.cursor/mcp.json`. Examples: [`examples/multi-a`](examples/multi-a), [`examples/multi-b`](examples/multi-b), [`examples/multi-project.mcp.json`](examples/multi-project.mcp.json).
 

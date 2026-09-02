@@ -37,8 +37,12 @@ export function runSetup(options = {}) {
   const dashboardPort = portResolved.port;
   setupCfg.dashboardPort = dashboardPort;
 
-  // Persist CLI --port into config so serve/stop/MCP stay aligned
-  if (options.port !== undefined) {
+  const prevPort = Number(fileCfg.setup?.dashboardPort);
+  const shouldPersist =
+    options.port !== undefined ||
+    !Number.isInteger(prevPort) ||
+    prevPort !== dashboardPort;
+  if (shouldPersist) {
     try {
       const next = { ...fileCfg, setup: { ...(fileCfg.setup || {}), dashboardPort } };
       fs.writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
@@ -98,6 +102,27 @@ export function runSetup(options = {}) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   }
   return result;
+}
+
+/**
+ * Align config + Cursor/Continue MCP URLs with the port actually in use
+ * (called from `start` / `serve` after a concrete port is chosen).
+ * @param {unknown} port
+ * @param {{ quiet?: boolean, startDir?: string }} [options]
+ */
+export function syncDashboardPortBindings(port, options = {}) {
+  const spec = resolveDashboardPort({ port });
+  if (spec.auto) {
+    return {
+      ok: false,
+      reason: "sync needs a concrete port after listen/auto allocation",
+    };
+  }
+  return runSetup({
+    port: spec.port,
+    quiet: options.quiet !== false,
+    startDir: options.startDir,
+  });
 }
 
 /**

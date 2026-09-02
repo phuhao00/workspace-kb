@@ -336,13 +336,15 @@ npx workspace-kb ingest --full
 # 配置里写死任意端口
 # "setup": { "dashboardPort": 19090 }
 
-npx workspace-kb start                  # 用配置端口
-npx workspace-kb start --port 19091     # 本次覆盖
-npx workspace-kb start --port auto      # 系统分配空闲端口
+npx workspace-kb start                  # 用配置端口（并同步 MCP URL）
+npx workspace-kb start --port 19091     # 覆盖端口，同时写回 config + `.cursor/mcp.json`
+npx workspace-kb start --port auto      # 系统分配空闲端口并同步配置
 npx workspace-kb stop                   # 停配置/registry 对应端口
-npx workspace-kb setup --port 19090     # 重写 MCP URL 并写回 config
+npx workspace-kb setup --port 19090     # 仅重写 MCP URL 并写回 config（不启动）
 npx workspace-kb projects
 ```
+
+`start` / `serve` 在选定端口后会自动同步：`workspace-kb.config.json` → `setup.dashboardPort`、`.cursor/mcp.json`、`.continue/workspace-kb.mcp.json`。
 
 优先使用**项目内** `.cursor/mcp.json`。示例：[`examples/multi-a`](examples/multi-a)、[`examples/multi-b`](examples/multi-b)、[`examples/multi-project.mcp.json`](examples/multi-project.mcp.json)。
 

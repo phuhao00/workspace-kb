@@ -3,8 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { loadRuntimeConfig } from "./config.js";
-import { ensureDir } from "./config.js";
+import { loadRuntimeConfig, ensureDir, resetRuntimeConfig } from "./config.js";
 import { allocateDashboardPort, resolveDashboardPort } from "./port.js";
 
 const CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), "cli.js");
@@ -108,9 +107,18 @@ export async function startDaemon(opts = {}) {
     ? (await allocateDashboardPort({ port: "auto" })).port
     : resolved.port;
 
+  // Rewrite config + Cursor/Continue MCP URLs to the port we actually use
+  const setupSync = await syncPortBindings(port, cfg.workspaceRoot);
+
   if (isPortAlive(port)) {
     const entry = registerProject({ port });
-    return { ok: true, alreadyRunning: true, portSource: resolved.source, ...entry };
+    return {
+      ok: true,
+      alreadyRunning: true,
+      portSource: resolved.source,
+      setupSync,
+      ...entry,
+    };
   }
 
   ensureDir(registryDir());
@@ -136,8 +144,37 @@ export async function startDaemon(opts = {}) {
     pid: child.pid,
     logFile,
     portSource: resolved.auto ? `auto->${port}` : resolved.source,
+    setupSync,
     ...entry,
   };
+}
+
+/**
+ * @param {number} port
+ * @param {string} workspaceRoot
+ */
+async function syncPortBindings(port, workspaceRoot) {
+  try {
+    const { syncDashboardPortBindings } = await import("./setup.js");
+    const result = syncDashboardPortBindings(port, {
+      quiet: true,
+      startDir: workspaceRoot,
+    });
+    resetRuntimeConfig();
+    return {
+      ok: result.ok !== false,
+      dashboardPort: result.dashboardPort ?? port,
+      mcpPath: result.mcpPath || null,
+      mcpMode: result.mcpMode || null,
+      mcpUrl: `http://127.0.0.1:${result.dashboardPort ?? port}/mcp`,
+      reason: result.reason || null,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 /**

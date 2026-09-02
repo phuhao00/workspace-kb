@@ -16,7 +16,7 @@ import {
   actionStartIngest,
   getControlStatus,
 } from "./actions.js";
-import { getPackageRoot, loadRuntimeConfig } from "./config.js";
+import { getPackageRoot, loadRuntimeConfig, resetRuntimeConfig } from "./config.js";
 import { getHealth } from "./health.js";
 import { McpHttpGateway } from "./mcp-http.js";
 import { getUsageDashboard } from "./usage.js";
@@ -173,10 +173,37 @@ export async function startDashboard(options = {}) {
   });
 
   const url = `http://${host}:${port}/`;
+
+  let setupSync = null;
+  try {
+    const { syncDashboardPortBindings } = await import("./setup.js");
+    const synced = syncDashboardPortBindings(port, {
+      quiet: true,
+      startDir: cfg.workspaceRoot,
+    });
+    resetRuntimeConfig();
+    setupSync = {
+      ok: synced.ok !== false,
+      dashboardPort: synced.dashboardPort ?? port,
+      mcpPath: synced.mcpPath || null,
+      mcpUrl: `http://127.0.0.1:${port}/mcp`,
+    };
+  } catch (err) {
+    setupSync = {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+
   process.stderr.write(
     `workspace-kb dashboard\n  ${url}\n  mcp:     ${url}mcp\n  port: ${port} (source=${allocated.source}${allocated.auto ? ", auto" : ""})\n  workspace: ${cfg.workspaceRoot}\n  data: ${cfg.dataDir}\n`,
   );
-  return { server, url, port, host, mcpGateway, portSource: allocated.source };
+  if (setupSync?.ok) {
+    process.stderr.write(
+      `  synced:  setup.dashboardPort=${setupSync.dashboardPort} · ${setupSync.mcpPath || "mcp.json"}\n`,
+    );
+  }
+  return { server, url, port, host, mcpGateway, portSource: allocated.source, setupSync };
 }
 
 function sendJson(res, status, body) {

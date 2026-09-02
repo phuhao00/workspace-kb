@@ -38,12 +38,21 @@ ollama pull bge-m3
 npx workspace-kb init
 npm install
 npx workspace-kb ingest
-# one command: sync MCP/port config + start dashboard
+# one command: sync MCP/port config + start dashboard (auto incremental ingest on)
 npx workspace-kb up --port 8700
 # open http://127.0.0.1:8700/
 npx workspace-kb search "payment failure"
 npx workspace-kb down
 ```
+
+New/changed markdown under configured paths is **auto-ingested** while the dashboard runs (~2s debounce). Also:
+
+```bash
+npx workspace-kb watch          # auto-ingest only
+npx workspace-kb up --no-watch  # start without watching
+```
+
+Config: `"autoIngest": false` to disable; `"watchDebounceMs": 3000` to tune.
 
 Existing project:
 
@@ -80,16 +89,17 @@ After upgrade: **restart `start`/`serve`**, then click **重启 MCP** on the das
 ```text
 workspace-kb <command>
 
-  up [--port <n|auto>] [--ingest|--full]   # ★ one-shot: sync MCP/config + start
-  down [--port <n>]                        # ★ stop (alias of stop)
+  up [--port <n|auto>] [--ingest|--full] [--no-watch]  # ★ sync+start+auto-ingest
+  down [--port <n>]                        # ★ stop
+  watch                                    # auto-ingest only (foreground)
   init [--force] [--name app] [--port <n>]
-  setup [--port <n>]            # write MCP/rules only
+  setup [--port <n>]
   ingest [--full]
-  start | stop | serve [--port <1-65535|auto>]
+  start | stop | serve [--port <1-65535|auto>] [--no-watch]
   search | read | status | health | stats | projects | memory | feedback
 ```
 
-Day-to-day: just `up` / `down`. `start` also syncs MCP on port change; `up` combines setup+start.
+Day-to-day: `up` / `down`. While the dashboard runs, markdown under configured paths is watched and incrementally ingested.
 
 ## Dashboard
 

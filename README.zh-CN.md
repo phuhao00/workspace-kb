@@ -40,12 +40,21 @@ ollama pull bge-m3
 npx workspace-kb init
 npm install
 npx workspace-kb ingest
-# 一键：写 MCP/端口配置 + 后台启动看板
+# 一键：写 MCP/端口配置 + 后台启动看板（默认开启文档自动增量索引）
 npx workspace-kb up --port 8700
 # 打开 http://127.0.0.1:8700/
 npx workspace-kb search "充值未到账"
 npx workspace-kb down          # 停止
 ```
+
+新增/修改 `docs`、Skill、Wiki 等配置路径下的 markdown 后，**只要看板在跑会自动增量 ingest**（防抖约 2s）。也可：
+
+```bash
+npx workspace-kb watch          # 只跑自动增量，不开看板
+npx workspace-kb up --no-watch  # 启动但不监听
+```
+
+配置：`"autoIngest": false` 关闭；`"watchDebounceMs": 3000` 调整防抖。
 
 已有项目：
 
@@ -82,16 +91,17 @@ npm install github:phuhao00/workspace-kb#master
 ```text
 workspace-kb <命令>
 
-  up [--port <n|auto>] [--ingest|--full]   # ★ 一键：同步 MCP/config + 启动
-  down [--port <n>]                        # ★ 停止（同 stop）
+  up [--port <n|auto>] [--ingest|--full] [--no-watch]  # ★ 同步+启动+自动增量
+  down [--port <n>]                        # ★ 停止
+  watch                                    # 仅自动增量（前台）
   init [--force] [--name 应用名] [--port <n>]
-  setup [--port <n>]            # 只写 MCP / 规则（不启动）
+  setup [--port <n>]
   ingest [--full]
-  start | stop | serve [--port <1-65535|auto>]
+  start | stop | serve [--port <1-65535|auto>] [--no-watch]
   search | read | status | health | stats | projects | memory | feedback
 ```
 
-多数时候只需：`up` / `down`。`start` 也会在换端口时同步 MCP；`up` 把 setup+start 合成一步。
+日常：`up` / `down`。看板运行期间监听配置路径下的 `.md` 变更并自动增量索引。
 
 ## 看板（Dashboard）
 

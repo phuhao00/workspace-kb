@@ -55,12 +55,22 @@ export async function getControlStatus(ctx = {}) {
       : { ok: false, reason: setup.reason },
     mcp: ctx.mcpGateway?.getStatus() || { mode: "off" },
     ingest: { ...ingestJob },
+    autoIngest: await peekAutoIngest(),
     serve: {
       port: ctx.port,
       host: ctx.host,
       pid: process.pid,
     },
   };
+}
+
+async function peekAutoIngest() {
+  try {
+    const { getAutoIngestStatus } = await import("./watch.js");
+    return getAutoIngestStatus();
+  } catch {
+    return { enabled: false };
+  }
 }
 
 export function actionSetup() {

@@ -134,6 +134,7 @@ async function loadControl() {
   const mcp = data.mcp || {};
   const setup = data.setup || {};
   const ingest = data.ingest || {};
+  const auto = data.autoIngest || {};
   const health = data.health || {};
   const usage = health.usage || {};
 
@@ -148,14 +149,25 @@ async function loadControl() {
     ),
     stat(
       "Ingest",
-      ingest.running ? "运行中…" : ingest.error ? `失败: ${ingest.error}` : "空闲",
-      ingest.running ? "" : ingest.error ? "bad" : "ok",
+      ingest.running || auto.running
+        ? "运行中…"
+        : ingest.error || auto.lastError
+          ? `失败: ${ingest.error || auto.lastError}`
+          : "空闲",
+      ingest.running || auto.running ? "" : ingest.error || auto.lastError ? "bad" : "ok",
+    ),
+    stat(
+      "自动增量",
+      auto.enabled
+        ? `开 · ${auto.roots?.length || 0} 根目录${auto.lastIngestAt ? ` · 最近 ${formatTs(auto.lastIngestAt)}` : ""}`
+        : "关",
+      auto.enabled ? "ok" : "",
     ),
     stat("重启次数", String(mcp.restartCount ?? 0), ""),
   ].join("");
 
-  els.btnIngest.disabled = Boolean(ingest.running);
-  els.btnIngestFull.disabled = Boolean(ingest.running);
+  els.btnIngest.disabled = Boolean(ingest.running || auto.running);
+  els.btnIngestFull.disabled = Boolean(ingest.running || auto.running);
 
   renderHealth(health);
   renderProjects(data.projects || []);

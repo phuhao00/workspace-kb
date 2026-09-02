@@ -28,7 +28,7 @@ import { allocateDashboardPort } from "./port.js";
 const WEB_DIR = path.join(getPackageRoot(), "web");
 
 /**
- * @param {{ port?: number|string, host?: string, open?: boolean }} [options]
+ * @param {{ port?: number|string, host?: string, open?: boolean, watch?: boolean }} [options]
  */
 export async function startDashboard(options = {}) {
   const allocated = await allocateDashboardPort({ port: options.port });
@@ -203,7 +203,33 @@ export async function startDashboard(options = {}) {
       `  synced:  setup.dashboardPort=${setupSync.dashboardPort} · ${setupSync.mcpPath || "mcp.json"}\n`,
     );
   }
-  return { server, url, port, host, mcpGateway, portSource: allocated.source, setupSync };
+
+  const noWatch =
+    options.watch === false ||
+    process.env.WORKSPACE_KB_AUTO_INGEST === "0" ||
+    process.env.WORKSPACE_KB_AUTO_INGEST === "false";
+  let autoIngest = { enabled: false };
+  if (!noWatch) {
+    try {
+      const { startAutoIngest } = await import("./watch.js");
+      autoIngest = startAutoIngest({ enabled: true });
+    } catch (err) {
+      process.stderr.write(
+        `  auto-ingest failed: ${err instanceof Error ? err.message : err}\n`,
+      );
+    }
+  }
+
+  return {
+    server,
+    url,
+    port,
+    host,
+    mcpGateway,
+    portSource: allocated.source,
+    setupSync,
+    autoIngest,
+  };
 }
 
 function sendJson(res, status, body) {

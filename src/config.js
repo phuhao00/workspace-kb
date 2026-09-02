@@ -171,6 +171,8 @@ export function loadRuntimeConfig() {
         : {},
     rewriteQuery: fileCfg.rewriteQuery !== false,
     incremental: fileCfg.incremental !== false,
+    autoIngest: fileCfg.autoIngest !== false,
+    watchDebounceMs: Number(fileCfg.watchDebounceMs || 2000),
     paths: Array.isArray(fileCfg.paths)
       ? fileCfg.paths
       : [".agents", "docs", "openwiki", "*.md"],

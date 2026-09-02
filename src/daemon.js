@@ -98,7 +98,7 @@ function processExists(pid) {
 
 /**
  * Detach serve as background daemon.
- * @param {{ port?: unknown }} [opts]
+ * @param {{ port?: unknown, watch?: boolean }} [opts]
  */
 export async function startDaemon(opts = {}) {
   const cfg = loadRuntimeConfig();
@@ -117,6 +117,7 @@ export async function startDaemon(opts = {}) {
       alreadyRunning: true,
       portSource: resolved.source,
       setupSync,
+      autoIngest: "already-running (restart serve to enable watch)",
       ...entry,
     };
   }
@@ -124,7 +125,10 @@ export async function startDaemon(opts = {}) {
   ensureDir(registryDir());
   const logFile = path.join(registryDir(), `serve-${port}.log`);
   const out = fs.openSync(logFile, "a");
-  const child = spawn(process.execPath, [CLI, "serve", "--port", String(port)], {
+  const watch = opts.watch !== false;
+  const serveArgs = [CLI, "serve", "--port", String(port)];
+  if (!watch) serveArgs.push("--no-watch");
+  const child = spawn(process.execPath, serveArgs, {
     cwd: cfg.workspaceRoot,
     detached: true,
     stdio: ["ignore", out, out],
@@ -133,6 +137,7 @@ export async function startDaemon(opts = {}) {
       WORKSPACE_KB_CONFIG: cfg.configPath || "",
       WORKSPACE_ROOT: cfg.workspaceRoot,
       WORKSPACE_KB_PORT: String(port),
+      WORKSPACE_KB_AUTO_INGEST: watch ? "1" : "0",
     },
   });
   child.unref();
@@ -145,6 +150,7 @@ export async function startDaemon(opts = {}) {
     logFile,
     portSource: resolved.auto ? `auto->${port}` : resolved.source,
     setupSync,
+    autoIngest: watch,
     ...entry,
   };
 }

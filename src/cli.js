@@ -70,7 +70,8 @@ async function main(cmd, args) {
       const { startDashboard } = await import("./dashboard.js");
       const { registerProject } = await import("./daemon.js");
       const port = parsePort(args);
-      const started = await startDashboard({ port });
+      const watch = !args.includes("--no-watch");
+      const started = await startDashboard({ port, watch });
       try {
         registerProject({ port: started.port });
       } catch {
@@ -79,18 +80,34 @@ async function main(cmd, args) {
       await new Promise(() => {});
       return;
     }
+    case "watch": {
+      const { startAutoIngest } = await import("./watch.js");
+      const result = startAutoIngest({ enabled: true });
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      if (!result.enabled) {
+        process.exitCode = 1;
+        return;
+      }
+      process.stderr.write(
+        "auto-ingest running — edit markdown under watched roots; Ctrl+C to stop\n",
+      );
+      await new Promise(() => {});
+      return;
+    }
     case "start": {
       const { startDaemon } = await import("./daemon.js");
       const port = parsePort(args);
-      const result = await startDaemon({ port });
+      const watch = !args.includes("--no-watch");
+      const result = await startDaemon({ port, watch });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return;
     }
     case "up": {
-      // One-shot: sync MCP/config to port → background dashboard
+      // One-shot: sync MCP/config to port → background dashboard (+ auto-ingest)
       const port = parsePort(args);
       const ingestFirst = args.includes("--ingest") || args.includes("--full");
       const full = args.includes("--full");
+      const noWatch = args.includes("--no-watch");
       if (ingestFirst) {
         const meta = await ingest({ full });
         process.stderr.write(
@@ -109,6 +126,7 @@ async function main(cmd, args) {
       const { startDaemon } = await import("./daemon.js");
       const started = await startDaemon({
         port: port !== undefined ? port : setup.dashboardPort,
+        watch: !noWatch,
       });
       const out = {
         ok: Boolean(started.ok),
@@ -117,13 +135,14 @@ async function main(cmd, args) {
         dashboardUrl: started.dashboardUrl,
         mcpUrl: started.mcpUrl,
         alreadyRunning: started.alreadyRunning,
+        autoIngest: noWatch ? false : true,
         setup: {
           ok: setup.ok,
           dashboardPort: setup.dashboardPort,
           mcpPath: setup.mcpPath,
           serverId: setup.serverId,
         },
-        hint: "Reload Cursor MCP if the IDE still points at an old port.",
+        hint: "Docs changes auto-ingest while dashboard runs. Reload Cursor MCP if port changed.",
       };
       process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
       if (!out.ok) process.exitCode = 1;
@@ -225,12 +244,14 @@ async function main(cmd, args) {
         "usage: workspace-kb <up|down|ingest|search|…>\n" +
           "\n" +
           "Everyday (one command):\n" +
-          "  up   [--port <n|auto>] [--ingest|--full]  # sync MCP+config, start dashboard\n" +
-          "  down [--port <n>]                         # stop (alias of stop)\n" +
+          "  up   [--port <n|auto>] [--ingest|--full] [--no-watch]\n" +
+          "       sync MCP+config, start dashboard, auto incremental ingest on doc changes\n" +
+          "  down [--port <n>]                         # stop\n" +
+          "  watch                                     # foreground auto-ingest only\n" +
           "\n" +
           "Also: start|stop|serve|setup|init|projects|health|status|stats|search|read|memory|feedback\n" +
-          "Port: --port > WORKSPACE_KB_PORT > setup.dashboardPort > registry > 8787\n" +
-          "Upgrade if `up`/`start` missing: npm i github:phuhao00/workspace-kb#master",
+          "Disable auto-ingest: --no-watch | autoIngest:false | WORKSPACE_KB_AUTO_INGEST=0\n" +
+          "Upgrade if commands missing: npm i github:phuhao00/workspace-kb#master",
       );
   }
 }

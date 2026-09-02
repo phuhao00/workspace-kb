@@ -13,10 +13,31 @@ import {
 } from "./fingerprint.js";
 import { classify, collectSourceFiles } from "./sources.js";
 
+/** Shared lock so dashboard button + auto-watch never overlap. */
+export const ingestLock = { running: false };
+
 /**
  * @param {{ full?: boolean }} [options]
  */
 export async function ingest(options = {}) {
+  if (ingestLock.running) {
+    const err = new Error("ingest already running");
+    /** @type {any} */
+    (err).code = "INGEST_BUSY";
+    throw err;
+  }
+  ingestLock.running = true;
+  try {
+    return await ingestUnsafe(options);
+  } finally {
+    ingestLock.running = false;
+  }
+}
+
+/**
+ * @param {{ full?: boolean }} [options]
+ */
+async function ingestUnsafe(options = {}) {
   const cfg = loadRuntimeConfig();
   const full = options.full === true || cfg.incremental === false;
   const files = collectSourceFiles();

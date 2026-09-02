@@ -148,8 +148,11 @@ function patchAgentsMd(workspaceRoot, serverId, dashboardPort) {
   if (fs.existsSync(agentsPath)) {
     let content = fs.readFileSync(agentsPath, "utf8");
     if (content.includes(MARKER_START)) {
-      content = removeLegacyKbSection(content);
-      content = content.replace(markerRe, block);
+      if (content.includes(MARKER_END)) {
+        content = content.replace(markerRe, block);
+      } else {
+        content = content.replace(/<!-- WORKSPACE-KB:START -->[\s\S]*$/, block);
+      }
       fs.writeFileSync(agentsPath, content, "utf8");
       return { agentsMd: "updated", path: agentsPath };
     }

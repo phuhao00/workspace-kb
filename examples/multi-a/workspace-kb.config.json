@@ -1,0 +1,10 @@
+{
+  "workspaceRoot": ".",
+  "dataDir": ".workspace-kb",
+  "model": "bge-m3",
+  "embedDim": 1024,
+  "paths": ["docs", "*.md"],
+  "childRepos": [],
+  "childGlobs": [],
+  "skipDirs": ["node_modules", ".git", ".workspace-kb"]
+}

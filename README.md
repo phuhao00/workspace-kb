@@ -78,6 +78,85 @@ Shows call counts, estimated returned/saved tokens (`chars/4`), daily trends, to
 
 Tools: `kb_search` · `kb_read` · `kb_status`.
 
+## Multiple projects on one machine
+
+Each workspace keeps its **own** config and data. They do not share an index.
+
+```text
+E:/project-a/
+  workspace-kb.config.json
+  .workspace-kb/                 # project-a index + usage.jsonl
+
+E:/project-b/
+  workspace-kb.config.json
+  .workspace-kb/                 # project-b only
+```
+
+### CLI
+
+Run commands **from that project root** (or set `WORKSPACE_KB_CONFIG`):
+
+```bash
+cd E:/project-a
+npx workspace-kb ingest
+npx workspace-kb serve --port 8787
+
+cd E:/project-b
+npx workspace-kb ingest
+npx workspace-kb serve --port 8788   # different port
+```
+
+Or pin the config explicitly:
+
+```bash
+set WORKSPACE_KB_CONFIG=E:\project-b\workspace-kb.config.json
+npx workspace-kb status
+```
+
+### Dashboard ports
+
+Two `serve` processes cannot bind the same port. Use `--port` or `WORKSPACE_KB_PORT`.
+
+| Project   | Example URL                    |
+|-----------|--------------------------------|
+| project-a | http://127.0.0.1:8787/         |
+| project-b | http://127.0.0.1:8788/         |
+
+### Cursor MCP
+
+User-level `mcp.json` is usually global. Register **two servers** with different `cwd` (and optional `env`):
+
+```json
+{
+  "mcpServers": {
+    "kb-project-a": {
+      "command": "node",
+      "args": ["E:/project-a/node_modules/workspace-kb/src/mcp.js"],
+      "cwd": "E:/project-a"
+    },
+    "kb-project-b": {
+      "command": "node",
+      "args": ["E:/project-b/node_modules/workspace-kb/src/mcp.js"],
+      "cwd": "E:/project-b",
+      "env": {
+        "WORKSPACE_KB_CONFIG": "E:/project-b/workspace-kb.config.json"
+      }
+    }
+  }
+}
+```
+
+Prefer a **project-local** `.cursor/mcp.json` inside each repo so opening that folder only loads that KB.
+
+See also [`examples/multi-project.mcp.json`](examples/multi-project.mcp.json) and the twin sample trees [`examples/multi-a`](examples/multi-a) / [`examples/multi-b`](examples/multi-b).
+
+After upgrading the package:
+
+```bash
+npm install github:phuhao00/workspace-kb#master
+# then restart the MCP servers in Cursor
+```
+
 ## Env
 
 | Variable | Meaning |

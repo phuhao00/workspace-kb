@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "kb-project-a": {
+      "command": "node",
+      "args": ["node_modules/workspace-kb/src/mcp.js"],
+      "cwd": "/absolute/path/to/project-a"
+    },
+    "kb-project-b": {
+      "command": "node",
+      "args": ["node_modules/workspace-kb/src/mcp.js"],
+      "cwd": "/absolute/path/to/project-b",
+      "env": {
+        "WORKSPACE_KB_CONFIG": "/absolute/path/to/project-b/workspace-kb.config.json"
+      }
+    }
+  }
+}

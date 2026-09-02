@@ -28,6 +28,10 @@ npm install github:phuhao00/workspace-kb
 
 Also re-runs after every successful `ingest`. Set `WORKSPACE_KB_SKIP_SETUP=1` to disable postinstall, or `"setup": { "enabled": false }` in config.
 
+MCP entries include **`env.WORKSPACE_KB_CONFIG`** (absolute path) because Cursor may not set the child process `cwd` correctly — without it, `kb_search` can silently query the wrong folder (e.g. `C:\\Users\\...`).
+
+Also writes `.cursor/rules/workspace-kb-routing.mdc` (`alwaysApply: true`) so agents call `kb_search` before broad scans.
+
 After install/update, **restart MCP in Cursor** so `kb_search` / `kb_read` appear in chat.
 
 Optional config overrides:

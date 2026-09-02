@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { resetRuntimeConfig } from "./config.js";
 import { readKnowledge } from "./read.js";
 import { searchKnowledge } from "./search.js";
 import { knowledgeStatus } from "./status.js";
@@ -34,6 +35,7 @@ server.registerTool(
     },
   },
   async ({ query, limit, kind, repo }) => {
+    resetRuntimeConfig();
     const result = await searchKnowledge(query, { limit, kind, repo });
     return asJson(result);
   },
@@ -50,6 +52,7 @@ server.registerTool(
     },
   },
   async ({ path, heading }) => {
+    resetRuntimeConfig();
     const result = readKnowledge(path, heading);
     return asJson(result);
   },
@@ -63,6 +66,7 @@ server.registerTool(
     inputSchema: {},
   },
   async () => {
+    resetRuntimeConfig();
     const result = await knowledgeStatus();
     return asJson(result);
   },

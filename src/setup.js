@@ -10,7 +10,9 @@ const MARKER_END = "<!-- WORKSPACE-KB:END -->";
  * @param {{ startDir?: string, quiet?: boolean }} [options]
  */
 export function runSetup(options = {}) {
-  const resolved = resolveWorkspaceForSetup(options.startDir);
+  const resolved = resolveWorkspaceForSetup(options.startDir, {
+    preferInitCwd: options.preferInitCwd === true,
+  });
   if (!resolved) {
     return { ok: false, reason: "no workspace-kb.config.json found" };
   }
@@ -26,7 +28,8 @@ export function runSetup(options = {}) {
   const dashboardPort = Number(setupCfg.dashboardPort) || 8787;
   const mcpScript = path.join(PKG_ROOT, "src", "mcp.js");
 
-  const mcpResult = writeCursorMcp(workspaceRoot, mcpScript, serverId);
+  const mcpResult = writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId);
+  const ruleResult = writeCursorRule(workspaceRoot, serverId, setupCfg);
 
   let agentsResult = { agentsMd: "skipped" };
   if (setupCfg.agentsMd !== false) {
@@ -39,6 +42,7 @@ export function runSetup(options = {}) {
     configPath,
     serverId,
     mcpPath: mcpResult.mcpPath,
+    cursorRule: ruleResult.cursorRule,
     agentsMd: agentsResult.agentsMd,
     dashboardPort,
   };
@@ -51,10 +55,12 @@ export function runSetup(options = {}) {
 
 /**
  * @param {string} [startDir]
+ * @param {{ preferInitCwd?: boolean }} [options]
  */
-export function resolveWorkspaceForSetup(startDir) {
+export function resolveWorkspaceForSetup(startDir, options = {}) {
+  const initCwd = (process.env.INIT_CWD || "").trim();
   const start = path.resolve(
-    (process.env.INIT_CWD || "").trim() || startDir || process.cwd(),
+    options.preferInitCwd && initCwd ? initCwd : startDir || process.cwd(),
   );
   let dir = start;
   for (;;) {
@@ -94,7 +100,7 @@ function toJsonPath(absPath) {
   return path.resolve(absPath).split(path.sep).join("/");
 }
 
-function writeCursorMcp(workspaceRoot, mcpScript, serverId) {
+function writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId) {
   const cursorDir = path.join(workspaceRoot, ".cursor");
   fs.mkdirSync(cursorDir, { recursive: true });
   const mcpPath = path.join(cursorDir, "mcp.json");
@@ -112,15 +118,47 @@ function writeCursorMcp(workspaceRoot, mcpScript, serverId) {
     doc.mcpServers = {};
   }
 
+  /** @type {Record<string, string>} */
+  const env = {
+    WORKSPACE_KB_CONFIG: toJsonPath(configPath),
+    WORKSPACE_ROOT: toJsonPath(workspaceRoot),
+  };
+
   doc.mcpServers[serverId] = {
     command: "node",
     args: [toJsonPath(mcpScript)],
     cwd: toJsonPath(workspaceRoot),
+    env,
     type: "stdio",
   };
 
   fs.writeFileSync(mcpPath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
   return { mcpPath, serverId };
+}
+
+function writeCursorRule(workspaceRoot, serverId, setupCfg) {
+  if (setupCfg.cursorRule === false) {
+    return { cursorRule: "skipped" };
+  }
+  const rulesDir = path.join(workspaceRoot, ".cursor", "rules");
+  fs.mkdirSync(rulesDir, { recursive: true });
+  const rulePath = path.join(rulesDir, "workspace-kb-routing.mdc");
+  const body = `---
+description: >-
+  Always call workspace-kb MCP (kb_search) before broad markdown reads or
+  multi-repo scans in this workspace.
+alwaysApply: true
+---
+
+# Workspace knowledge base (\`${serverId}\`)
+
+- **Must** call MCP \`kb_search\` first for architecture, routing, ops runbooks, symptoms, or "where is X" — then \`kb_read\` one heading, then \`rg\` in the cited repo only.
+- Do **not** open large guides or scan every child repo before searching the KB index.
+- Source code beats stale docs; KB is for finding the right doc/repo quickly.
+- MCP env pins \`WORKSPACE_KB_CONFIG\`; if \`kb_status\` shows wrong \`workspaceRoot\`, restart MCP in Cursor Settings.
+`;
+  fs.writeFileSync(rulePath, body, "utf8");
+  return { cursorRule: "written", rulePath };
 }
 
 function renderAgentsBlock(serverId, dashboardPort) {

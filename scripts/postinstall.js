@@ -6,7 +6,7 @@ if (process.env.WORKSPACE_KB_SKIP_SETUP === "1") {
 }
 
 try {
-  const result = runSetup({ quiet: true });
+  const result = runSetup({ quiet: true, preferInitCwd: true });
   if (result.ok) {
     process.stdout.write(
       `workspace-kb: auto-configured MCP "${result.serverId}" → ${result.mcpPath}\n`,

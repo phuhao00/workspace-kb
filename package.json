@@ -1,0 +1,51 @@
+{
+  "name": "workspace-kb",
+  "version": "1.0.0",
+  "description": "Local LanceDB markdown knowledge base for agent workflows (Cursor MCP + CLI). Index docs/skills, search short snippets, read one heading.",
+  "type": "module",
+  "bin": {
+    "workspace-kb": "./src/cli.js"
+  },
+  "files": [
+    "src",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "ingest": "node src/cli.js ingest",
+    "search": "node src/cli.js search",
+    "status": "node src/cli.js status",
+    "stats": "node src/cli.js stats",
+    "read": "node src/cli.js read",
+    "verify": "node src/verify.js",
+    "mcp": "node src/mcp.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "lancedb",
+    "rag",
+    "mcp",
+    "ollama",
+    "cursor",
+    "knowledge-base",
+    "markdown"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phuhao00/workspace-kb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/phuhao00/workspace-kb/issues"
+  },
+  "homepage": "https://github.com/phuhao00/workspace-kb#readme",
+  "license": "MIT",
+  "author": "phuhao00",
+  "dependencies": {
+    "@lancedb/lancedb": "^0.22.1",
+    "@modelcontextprotocol/sdk": "^1.20.1",
+    "zod": "^3.25.76"
+  }
+}

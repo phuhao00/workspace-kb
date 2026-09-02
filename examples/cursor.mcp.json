@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "workspace-kb": {
+      "command": "node",
+      "args": ["node_modules/workspace-kb/src/mcp.js"],
+      "cwd": "/absolute/path/to/your/workspace"
+    }
+  }
+}

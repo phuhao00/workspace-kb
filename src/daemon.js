@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { loadRuntimeConfig } from "./config.js";
 import { ensureDir } from "./config.js";
+import { allocateDashboardPort, resolveDashboardPort } from "./port.js";
 
 const CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), "cli.js");
 
@@ -40,11 +41,11 @@ export function saveRegistry(reg) {
 /** Register current workspace in global multi-project list. */
 export function registerProject(extra = {}) {
   const cfg = loadRuntimeConfig();
-  const port =
-    Number(extra.port) ||
-    Number(cfg.setup?.dashboardPort) ||
-    Number(process.env.WORKSPACE_KB_PORT) ||
-    8787;
+  const resolved = resolveDashboardPort({
+    port: extra.port !== undefined ? extra.port : undefined,
+    cfg,
+  });
+  const port = Number(extra.port) > 0 ? Number(extra.port) : resolved.port;
   const reg = loadRegistry();
   const id = path.basename(cfg.workspaceRoot);
   const entry = {
@@ -98,19 +99,18 @@ function processExists(pid) {
 
 /**
  * Detach serve as background daemon.
- * @param {{ port?: number }} [opts]
+ * @param {{ port?: unknown }} [opts]
  */
-export function startDaemon(opts = {}) {
+export async function startDaemon(opts = {}) {
   const cfg = loadRuntimeConfig();
-  const port =
-    Number(opts.port) ||
-    Number(process.env.WORKSPACE_KB_PORT) ||
-    Number(cfg.setup?.dashboardPort) ||
-    8787;
+  const resolved = resolveDashboardPort({ port: opts.port, cfg });
+  const port = resolved.auto
+    ? (await allocateDashboardPort({ port: "auto" })).port
+    : resolved.port;
 
   if (isPortAlive(port)) {
     const entry = registerProject({ port });
-    return { ok: true, alreadyRunning: true, ...entry };
+    return { ok: true, alreadyRunning: true, portSource: resolved.source, ...entry };
   }
 
   ensureDir(registryDir());
@@ -135,15 +135,31 @@ export function startDaemon(opts = {}) {
     alreadyRunning: false,
     pid: child.pid,
     logFile,
+    portSource: resolved.auto ? `auto->${port}` : resolved.source,
     ...entry,
   };
 }
 
+/**
+ * @param {{ port?: unknown }} [opts]
+ */
 export function stopDaemon(opts = {}) {
-  const port = Number(opts.port) || Number(process.env.WORKSPACE_KB_PORT) || 8787;
+  const resolved = resolveDashboardPort({ port: opts.port });
+  if (resolved.auto) {
+    return {
+      ok: false,
+      error: "stop requires a concrete port — pass --port <n> or set setup.dashboardPort",
+    };
+  }
+  const port = resolved.port;
   const pidFile = pidPath(port);
   if (!fs.existsSync(pidFile)) {
-    return { ok: false, error: `no pid file for port ${port}` };
+    return {
+      ok: false,
+      error: `no pid file for port ${port} (source=${resolved.source})`,
+      port,
+      source: resolved.source,
+    };
   }
   const pid = Number(fs.readFileSync(pidFile, "utf8").trim());
   try {
@@ -153,12 +169,12 @@ export function stopDaemon(opts = {}) {
       process.kill(pid, "SIGTERM");
     }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err), port };
   }
   try {
     fs.unlinkSync(pidFile);
   } catch {
     // ignore
   }
-  return { ok: true, port, pid };
+  return { ok: true, port, pid, source: resolved.source };
 }

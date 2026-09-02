@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { DEFAULT_DASHBOARD_PORT, resolveDashboardPort } from "./port.js";
 import { ensureDir } from "./config.js";
 import { runSetup } from "./setup.js";
 
@@ -14,7 +15,7 @@ const DEFAULT_CONFIG = {
   skipDirs: ["node_modules", "vendor", ".git", ".next", "Library", "logs", ".workspace-kb"],
   setup: {
     mcpMode: "http",
-    dashboardPort: 8787,
+    dashboardPort: DEFAULT_DASHBOARD_PORT,
     agentsMd: true,
     cursorSkill: true,
     continueConfig: true,
@@ -46,7 +47,9 @@ export function initWorkspace(opts = {}) {
     setup: {
       ...DEFAULT_CONFIG.setup,
       mcpServerId: `${slug(opts.name || path.basename(root))}-kb`,
-      dashboardPort: Number(opts.port) || 8787,
+      dashboardPort: resolveDashboardPort({
+        port: opts.port !== undefined ? opts.port : DEFAULT_DASHBOARD_PORT,
+      }).port,
     },
   };
   fs.writeFileSync(configPath, `${JSON.stringify(cfg, null, 2)}\n`, "utf8");

@@ -163,14 +163,17 @@ export function actionMemoryPrune() {
  * @param {{ port?: number, host?: string }} ctx
  */
 export function actionRestartServer(ctx = {}) {
-  const port = ctx.port || 8787;
+  const port = Number(ctx.port);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    return { ok: false, error: `invalid restart port: ${ctx.port}` };
+  }
   const host = ctx.host || "127.0.0.1";
 
   const child = spawn(process.execPath, [CLI_PATH, "serve", "--port", String(port)], {
     cwd: process.cwd(),
     detached: true,
     stdio: "ignore",
-    env: { ...process.env },
+    env: { ...process.env, WORKSPACE_KB_PORT: String(port) },
   });
   child.unref();
 

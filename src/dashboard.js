@@ -23,18 +23,20 @@ import { getUsageDashboard } from "./usage.js";
 import { knowledgeStatus } from "./status.js";
 import { summarizeFeedback } from "./feedback.js";
 import { listProjects } from "./daemon.js";
+import { allocateDashboardPort } from "./port.js";
 
 const WEB_DIR = path.join(getPackageRoot(), "web");
 
 /**
- * @param {{ port?: number, host?: string, open?: boolean }} [options]
+ * @param {{ port?: number|string, host?: string, open?: boolean }} [options]
  */
 export async function startDashboard(options = {}) {
-  const port = Number(options.port) || Number(process.env.WORKSPACE_KB_PORT) || 8787;
+  const allocated = await allocateDashboardPort({ port: options.port });
+  const port = allocated.port;
   const host = options.host || "127.0.0.1";
   const cfg = loadRuntimeConfig();
   const mcpGateway = new McpHttpGateway();
-  const ctx = { mcpGateway, port, host };
+  const ctx = { mcpGateway, port, host, portSource: allocated.source };
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -172,9 +174,9 @@ export async function startDashboard(options = {}) {
 
   const url = `http://${host}:${port}/`;
   process.stderr.write(
-    `workspace-kb dashboard\n  ${url}\n  mcp:     ${url}mcp\n  workspace: ${cfg.workspaceRoot}\n  data: ${cfg.dataDir}\n`,
+    `workspace-kb dashboard\n  ${url}\n  mcp:     ${url}mcp\n  port: ${port} (source=${allocated.source}${allocated.auto ? ", auto" : ""})\n  workspace: ${cfg.workspaceRoot}\n  data: ${cfg.dataDir}\n`,
   );
-  return { server, url, port, host, mcpGateway };
+  return { server, url, port, host, mcpGateway, portSource: allocated.source };
 }
 
 function sendJson(res, status, body) {
@@ -223,13 +225,10 @@ const isDirect =
   path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 
 if (isDirect) {
-  const port = parsePort(process.argv.slice(2));
-  await startDashboard({ port });
-}
-
-function parsePort(args) {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--port") return args[++i];
+  let port;
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--port") port = argv[++i];
   }
-  return undefined;
+  await startDashboard({ port });
 }

@@ -82,27 +82,28 @@ After upgrade: **restart `start`/`serve`**, then click **重启 MCP** on the das
 ```text
 workspace-kb <command>
 
-  init [--force] [--name app] [--port 8787]
-  setup                         # MCP + rules + skill + Continue
+  init [--force] [--name app] [--port <n>]
+  setup [--port <n>]            # MCP + rules + skill; any port
   ingest [--full]               # incremental by default
   search "<query>" [--limit 6] [--kind skill] [--repo my-service]
   read <path> [heading]
   status | health | stats [--days 7]
-  start | stop | serve [--port 8787]
+  start | stop | serve [--port <1-65535|auto>]
   projects                      # list ~/.workspace-kb/registry.json
   feedback [--bad] <note>
   memory put|search|list|delete|prune   # project ops facts (see below)
 ```
+
+Port resolution: `--port` → `WORKSPACE_KB_PORT` → `setup.dashboardPort` → registry → default `8787` (fallback only — **any free port works**).
 
 Examples:
 
 ```bash
 npx workspace-kb ingest --full
 npx workspace-kb search "充值未到账" --limit 8
-npx workspace-kb read docs/pay.md "Overview"
 npx workspace-kb memory put "staging hallapi HTTP :8080" --key staging-hallapi --tags ops,test-env
-npx workspace-kb start --port 8787
-npx workspace-kb stop --port 8787
+npx workspace-kb start --port 19090
+npx workspace-kb stop                 # uses config/registry port
 npx workspace-kb projects
 ```
 
@@ -270,7 +271,7 @@ Put `workspace-kb.config.json` at the **workspace root** (or set `WORKSPACE_KB_C
   "skipDirs": ["node_modules", "vendor", ".git", ".next", "Library", "logs", ".workspace-kb"],
   "setup": {
     "mcpServerId": "my-project-kb",
-    "dashboardPort": 8787,
+    "dashboardPort": 19090,
     "mcpMode": "http",
     "agentsMd": true,
     "cursorSkill": true,
@@ -313,16 +314,24 @@ npx workspace-kb ingest --full
 
 | `setup.mcpMode` | `.cursor/mcp.json` | Notes |
 |-----------------|--------------------|-------|
-| `http` (default) | `{ "url": "http://127.0.0.1:8787/mcp" }` | Needs `start`/`serve`; dashboard can **重启 MCP** |
+| `http` (default) | `{ "url": "http://127.0.0.1:<dashboardPort>/mcp" }` | Needs `start`/`serve`; dashboard can **重启 MCP** |
 | `stdio` | `command` + `env.WORKSPACE_KB_CONFIG` | No dashboard required; pin config path (Cursor often ignores `cwd`) |
 
 ## Multiple projects on one machine
 
-Each workspace has its **own** config + `.workspace-kb/`. Use **different ports**.
+Each workspace has its **own** config + `.workspace-kb/`. Use **any free TCP port** (`1–65535`). `8787` / `8788` are examples only — not a hard limit.
+
+Resolution order: `--port` → `WORKSPACE_KB_PORT` → `setup.dashboardPort` → local registry → default `8787`.
 
 ```bash
-cd E:/project-a && npx workspace-kb start --port 8787
-cd E:/project-b && npx workspace-kb start --port 8788
+# pin any port in config:
+# "setup": { "dashboardPort": 19090 }
+
+npx workspace-kb start                  # config port
+npx workspace-kb start --port 19091     # one-shot override
+npx workspace-kb start --port auto      # OS-assigned free port
+npx workspace-kb stop                   # stops config/registry port
+npx workspace-kb setup --port 19090     # rewrite MCP URL + persist config
 npx workspace-kb projects
 ```
 
@@ -346,7 +355,7 @@ Prefer **project-local** `.cursor/mcp.json`. Examples: [`examples/multi-a`](exam
 
 | Symptom | Fix |
 |---------|-----|
-| `EADDRINUSE :8787` | Another `serve`/`start` is up — use it, or `npx workspace-kb stop --port 8787` |
+| `EADDRINUSE :<port>` | Instance already on that port — use it, `stop --port <n>`, or change `setup.dashboardPort` |
 | Dashboard old UI / no **项目记忆** / 404 `/api/health` | Kill old node on that port; reinstall `#master` (≥1.5) and `start` again |
 | `No usage.jsonl` | Only **search/read/MCP** write usage — `ingest` alone does not |
 | Empty search / low hit rate | `ingest`, check `health`, extend `synonyms`, verify MCP root |
@@ -366,7 +375,7 @@ Prefer **project-local** `.cursor/mcp.json`. Examples: [`examples/multi-a`](exam
 | `WORKSPACE_KB_EMBED_PROVIDER` | `ollama` \| `openai` |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` | Cloud embeddings |
 | `OLLAMA_HOST` | Default `http://127.0.0.1:11434` |
-| `WORKSPACE_KB_PORT` | Dashboard port (default `8787`) |
+| `WORKSPACE_KB_PORT` | Dashboard port (any `1–65535`, or `auto`; else `setup.dashboardPort`) |
 | `WORKSPACE_KB_SKIP_SETUP` | `1` skips postinstall setup |
 
 ## License

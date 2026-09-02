@@ -2,13 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { registerProject } from "./daemon.js";
+import { resolveDashboardPort } from "./port.js";
 
 const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MARKER_START = "<!-- WORKSPACE-KB:START -->";
 const MARKER_END = "<!-- WORKSPACE-KB:END -->";
 
 /**
- * @param {{ startDir?: string, quiet?: boolean, preferInitCwd?: boolean }} [options]
+ * @param {{ startDir?: string, quiet?: boolean, preferInitCwd?: boolean, port?: unknown }} [options]
  */
 export function runSetup(options = {}) {
   const resolved = resolveWorkspaceForSetup(options.startDir, {
@@ -19,14 +20,35 @@ export function runSetup(options = {}) {
   }
 
   const { workspaceRoot, configPath, fileCfg } = resolved;
-  const setupCfg = fileCfg.setup && typeof fileCfg.setup === "object" ? fileCfg.setup : {};
+  const setupCfg = fileCfg.setup && typeof fileCfg.setup === "object" ? { ...fileCfg.setup } : {};
   if (setupCfg.enabled === false) {
     return { ok: false, reason: "setup disabled in config" };
   }
 
+  const portResolved = resolveDashboardPort({
+    port: options.port !== undefined ? options.port : setupCfg.dashboardPort,
+  });
+  if (portResolved.auto) {
+    return {
+      ok: false,
+      reason: "setup needs a concrete port — set setup.dashboardPort or pass --port <1-65535>",
+    };
+  }
+  const dashboardPort = portResolved.port;
+  setupCfg.dashboardPort = dashboardPort;
+
+  // Persist CLI --port into config so serve/stop/MCP stay aligned
+  if (options.port !== undefined) {
+    try {
+      const next = { ...fileCfg, setup: { ...(fileCfg.setup || {}), dashboardPort } };
+      fs.writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+    } catch {
+      // non-fatal
+    }
+  }
+
   const serverId =
     String(setupCfg.mcpServerId || "").trim() || serverIdFromRoot(workspaceRoot);
-  const dashboardPort = Number(setupCfg.dashboardPort) || 8787;
   const mcpScript = path.join(PKG_ROOT, "src", "mcp.js");
 
   const mcpResult = writeCursorMcp(
@@ -69,6 +91,7 @@ export function runSetup(options = {}) {
     continueConfig: continueResult.continueConfig,
     agentsMd: agentsResult.agentsMd,
     dashboardPort,
+    portSource: portResolved.source,
   };
 
   if (!options.quiet) {
@@ -128,7 +151,9 @@ function writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId, setupCfg
   const cursorDir = path.join(workspaceRoot, ".cursor");
   fs.mkdirSync(cursorDir, { recursive: true });
   const mcpPath = path.join(cursorDir, "mcp.json");
-  const dashboardPort = Number(setupCfg.dashboardPort) || 8787;
+  const dashboardPort = resolveDashboardPort({
+    port: setupCfg.dashboardPort,
+  }).port;
   const mcpMode = String(setupCfg.mcpMode || "http").toLowerCase();
 
   /** @type {{ mcpServers?: Record<string, unknown> }} */

@@ -65,9 +65,9 @@ async function main(cmd, args) {
       const { startDashboard } = await import("./dashboard.js");
       const { registerProject } = await import("./daemon.js");
       const port = parsePort(args);
-      await startDashboard({ port });
+      const started = await startDashboard({ port });
       try {
-        registerProject({ port });
+        registerProject({ port: started.port });
       } catch {
         // ignore
       }
@@ -77,7 +77,7 @@ async function main(cmd, args) {
     case "start": {
       const { startDaemon } = await import("./daemon.js");
       const port = parsePort(args);
-      const result = startDaemon({ port });
+      const result = await startDaemon({ port });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return;
     }
@@ -96,7 +96,7 @@ async function main(cmd, args) {
     }
     case "setup": {
       const { runSetup } = await import("./setup.js");
-      runSetup();
+      runSetup({ port: parsePort(args) });
       return;
     }
     case "init": {
@@ -177,11 +177,13 @@ async function main(cmd, args) {
           "  ingest [--full]\n" +
           '  search "<query>" [--limit 6] [--kind skill] [--repo my-service]\n' +
           "  read <path> [heading]\n" +
-          "  start|stop|serve [--port 8787]\n" +
-          "  init [--force] [--name my-app] [--port 8787]\n" +
-          "  setup   # write .cursor/mcp.json + rules + skill + Continue snippet\n" +
+          "  start|stop|serve [--port <1-65535|auto>]\n" +
+          "  init [--force] [--name my-app] [--port <n>]\n" +
+          "  setup [--port <n>]   # write MCP/rules; port from CLI or setup.dashboardPort\n" +
           "  feedback [--bad] <query note>\n" +
-          '  memory put|search|list|delete|prune  # project ops facts (Cursor+Codex+CLI)',
+          '  memory put|search|list|delete|prune  # project ops facts (Cursor+Codex+CLI)\n' +
+          "\nPort resolution: --port > WORKSPACE_KB_PORT > setup.dashboardPort > registry > 8787 default.\n" +
+          "Any free TCP port 1–65535 works; 8787/8788 are examples only.",
       );
   }
 }

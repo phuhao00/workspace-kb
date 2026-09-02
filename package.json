@@ -1,7 +1,7 @@
 {
   "name": "workspace-kb",
-  "version": "1.5.0",
-  "description": "Local LanceDB markdown knowledge base for agent workflows (Cursor MCP + CLI). Index docs/skills, search short snippets, read one heading.",
+  "version": "1.5.1",
+  "description": "Local LanceDB markdown knowledge base for agent workflows (Cursor MCP + CLI). Arbitrary dashboard ports; project memory; hybrid search.",
   "type": "module",
   "bin": {
     "workspace-kb": "./src/cli.js"

@@ -84,27 +84,28 @@ npm install github:phuhao00/workspace-kb#master
 ```text
 workspace-kb <命令>
 
-  init [--force] [--name 应用名] [--port 8787]
-  setup                         # 写入 MCP / 规则 / Skill / Continue
+  init [--force] [--name 应用名] [--port <n>]
+  setup [--port <n>]            # 写入 MCP / 规则 / Skill；端口可任意
   ingest [--full]               # 默认增量；--full 全量重建
   search "<查询>" [--limit 6] [--kind skill] [--repo 子仓名]
   read <路径> [标题]
   status | health | stats [--days 7]
-  start | stop | serve [--port 8787]
+  start | stop | serve [--port <1-65535|auto>]
   projects                      # 列出 ~/.workspace-kb/registry.json
   feedback [--bad] <备注>
   memory put|search|list|delete|prune   # 项目运维事实（见下文）
 ```
+
+端口解析：`--port` → `WORKSPACE_KB_PORT` → `setup.dashboardPort` → registry → 默认 `8787`（仅缺省值，**任意空闲端口均可**）。
 
 示例：
 
 ```bash
 npx workspace-kb ingest --full
 npx workspace-kb search "充值未到账" --limit 8
-npx workspace-kb read docs/pay.md "概述"
 npx workspace-kb memory put "测服 hallapi HTTP :8080" --key fish37-hallapi --tags ops,test-env
-npx workspace-kb start --port 8787
-npx workspace-kb stop --port 8787
+npx workspace-kb start --port 19090
+npx workspace-kb stop                 # 按配置端口停止，不必写死 8787
 npx workspace-kb projects
 ```
 
@@ -272,7 +273,7 @@ npx workspace-kb memory prune          # 清理已过期行
   "skipDirs": ["node_modules", "vendor", ".git", ".next", "Library", "logs", ".workspace-kb"],
   "setup": {
     "mcpServerId": "my-project-kb",
-    "dashboardPort": 8787,
+    "dashboardPort": 19090,
     "mcpMode": "http",
     "agentsMd": true,
     "cursorSkill": true,
@@ -322,16 +323,24 @@ npx workspace-kb ingest --full
 
 | `setup.mcpMode` | `.cursor/mcp.json` | 说明 |
 |-----------------|--------------------|------|
-| `http`（默认） | `{ "url": "http://127.0.0.1:8787/mcp" }` | 需 `start`/`serve`；看板可 **重启 MCP** |
+| `http`（默认） | `{ "url": "http://127.0.0.1:<dashboardPort>/mcp" }` | 需 `start`/`serve`；看板可 **重启 MCP** |
 | `stdio` | `command` + `env.WORKSPACE_KB_CONFIG` | 不依赖看板；务必钉死配置路径（Cursor 常忽略 `cwd`） |
 
 ## 同机多项目
 
-每个工作区各自一份配置与 `.workspace-kb/`，端口不要冲突：
+每个工作区各自一份配置与 `.workspace-kb/`，**端口任意**（`1–65535`），只要不冲突即可。`8787` / `8788` 只是示例，不是限制。
+
+解析顺序：`--port` → `WORKSPACE_KB_PORT` → `setup.dashboardPort` → 本机 registry → 默认 `8787`。
 
 ```bash
-cd E:/project-a && npx workspace-kb start --port 8787
-cd E:/project-b && npx workspace-kb start --port 8788
+# 配置里写死任意端口
+# "setup": { "dashboardPort": 19090 }
+
+npx workspace-kb start                  # 用配置端口
+npx workspace-kb start --port 19091     # 本次覆盖
+npx workspace-kb start --port auto      # 系统分配空闲端口
+npx workspace-kb stop                   # 停配置/registry 对应端口
+npx workspace-kb setup --port 19090     # 重写 MCP URL 并写回 config
 npx workspace-kb projects
 ```
 
@@ -349,7 +358,7 @@ npx workspace-kb projects
 
 | 现象 | 处理 |
 |------|------|
-| `EADDRINUSE :8787` | 已有实例在跑，直接用；或 `npx workspace-kb stop --port 8787` |
+| `EADDRINUSE :<port>` | 该端口已有实例；直接用，或 `stop --port <n>` / 换 `setup.dashboardPort` |
 | 看板仍是旧 UI / 无「项目记忆」/ `/api/health` 404 | 杀掉旧进程，安装 `#master`（≥1.5）后重新 `start` |
 | `No usage.jsonl` | 只有 **search/read/MCP** 会写；仅 `ingest` 不会产生 |
 | 搜不到 / 命中率低 | 跑 `ingest`、看 `health`、补 `synonyms`、核对 MCP 根目录 |
@@ -369,7 +378,7 @@ npx workspace-kb projects
 | `WORKSPACE_KB_EMBED_PROVIDER` | `ollama` \| `openai` |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` | 云端向量 |
 | `OLLAMA_HOST` | 默认 `http://127.0.0.1:11434` |
-| `WORKSPACE_KB_PORT` | 看板端口（默认 `8787`） |
+| `WORKSPACE_KB_PORT` | 看板端口（任意 `1–65535`，或 `auto`；未设置时用 `setup.dashboardPort`） |
 | `WORKSPACE_KB_SKIP_SETUP` | `1` 跳过 postinstall 自动配置 |
 
 ## 许可证

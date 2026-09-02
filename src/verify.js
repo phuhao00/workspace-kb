@@ -8,6 +8,7 @@ import {
   deleteMemory,
   validateMemoryText,
 } from "./memory.js";
+import { normalizePortSpec, resolveDashboardPort, findFreePort } from "./port.js";
 
 const CASES = [
   {
@@ -92,6 +93,41 @@ const memoryChecks = [
   report.memory.remainingAfterDelete,
 ];
 if (memoryChecks.some((ok) => !ok)) {
+  failed += 1;
+}
+
+// --- arbitrary ports ---
+const portCases = {
+  accepts19090: normalizePortSpec(19090).mode === "fixed" && normalizePortSpec(19090).port === 19090,
+  accepts65535: normalizePortSpec(65535).mode === "fixed",
+  rejects99999: normalizePortSpec(99999).mode === "invalid",
+  autoMode: normalizePortSpec("auto").mode === "auto",
+  freePort: 0,
+};
+try {
+  portCases.freePort = await findFreePort(29111);
+  portCases.freePortOk =
+    Number.isInteger(portCases.freePort) &&
+    portCases.freePort >= 1 &&
+    portCases.freePort <= 65535;
+} catch (err) {
+  portCases.freePortOk = false;
+  portCases.freePortError = err instanceof Error ? err.message : String(err);
+}
+const resolvedCfg = resolveDashboardPort({});
+portCases.resolveHasPort =
+  Number.isInteger(resolvedCfg.port) &&
+  (resolvedCfg.port === 0 || (resolvedCfg.port >= 1 && resolvedCfg.port <= 65535));
+
+report.port = portCases;
+if (
+  !portCases.accepts19090 ||
+  !portCases.accepts65535 ||
+  !portCases.rejects99999 ||
+  !portCases.autoMode ||
+  !portCases.freePortOk ||
+  !portCases.resolveHasPort
+) {
   failed += 1;
 }
 

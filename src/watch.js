@@ -216,7 +216,10 @@ function isInterestingChange(filename, cfg) {
     if (cfg.skipDirs.has(part)) return false;
   }
   if (name.includes(".workspace-kb/")) return false;
+  // Only markdown (and bare dir notifications that often precede new .md files)
   if (/\.(md|mdx|markdown)$/i.test(name)) return true;
-  if (/(^|\/)(docs|openwiki|\.agents|\.cursor)(\/|$)/i.test(name)) return true;
+  if (!name.includes(".") && /(^|\/)(docs|openwiki|\.agents)(\/|$)/i.test(name)) {
+    return true;
+  }
   return false;
 }

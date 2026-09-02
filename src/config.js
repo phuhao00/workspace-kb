@@ -27,6 +27,58 @@ export function resetRuntimeConfig() {
 }
 
 /**
+ * Prefer the workspace-kb.config.json found from cwd over a stale
+ * WORKSPACE_KB_CONFIG / WORKSPACE_ROOT pointing at another project.
+ * Call this from CLI entrypoints so `cd other-project && workspace-kb up` is safe.
+ * @param {string} [cwd]
+ * @returns {string|null} pinned config path
+ */
+export function pinConfigToCwd(cwd = process.cwd()) {
+  const local = findConfigWalkingUp(cwd);
+  if (!local) {
+    return null;
+  }
+  const localAbs = path.resolve(local);
+  const envCfg = (process.env.WORKSPACE_KB_CONFIG || "").trim();
+  if (!envCfg || path.resolve(envCfg).toLowerCase() !== localAbs.toLowerCase()) {
+    process.env.WORKSPACE_KB_CONFIG = localAbs;
+  }
+
+  const configDir = path.dirname(localAbs);
+  let fileCfg = {};
+  try {
+    fileCfg = JSON.parse(fs.readFileSync(localAbs, "utf8"));
+  } catch {
+    fileCfg = {};
+  }
+  const localRoot = path.resolve(configDir, fileCfg.workspaceRoot || ".");
+  const envRoot = (process.env.WORKSPACE_ROOT || "").trim();
+  if (envRoot) {
+    const absRoot = path.resolve(envRoot);
+    if (absRoot.toLowerCase() !== localRoot.toLowerCase()) {
+      delete process.env.WORKSPACE_ROOT;
+    }
+  }
+
+  _resolved = null;
+  return localAbs;
+}
+
+function findConfigWalkingUp(startDir) {
+  let dir = path.resolve(startDir);
+  for (;;) {
+    const candidate = path.join(dir, "workspace-kb.config.json");
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+/**
  * Resolve workspace root + user config.
  * Looks for WORKSPACE_KB_CONFIG or workspace-kb.config.json walking up from cwd.
  */
@@ -40,10 +92,16 @@ export function loadRuntimeConfig() {
   const fileCfg = configPath ? readJson(configPath) : {};
   const configDir = configPath ? path.dirname(configPath) : cwd;
 
-  const workspaceRoot = path.resolve(
-    configDir,
-    process.env.WORKSPACE_ROOT || fileCfg.workspaceRoot || ".",
-  );
+  const cfgRoot = path.resolve(configDir, fileCfg.workspaceRoot || ".");
+  let workspaceRoot = cfgRoot;
+  const envRoot = (process.env.WORKSPACE_ROOT || "").trim();
+  if (envRoot) {
+    const abs = path.resolve(envRoot);
+    // Ignore cross-project WORKSPACE_ROOT (common when switching repos in one shell)
+    if (abs.toLowerCase() === cfgRoot.toLowerCase()) {
+      workspaceRoot = abs;
+    }
+  }
 
   const dataDirName = fileCfg.dataDir || ".workspace-kb";
   const dataDir = path.isAbsolute(dataDirName)

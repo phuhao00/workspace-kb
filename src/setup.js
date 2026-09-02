@@ -144,10 +144,7 @@ export function resolveWorkspaceForSetup(startDir, options = {}) {
       } catch {
         fileCfg = {};
       }
-      const workspaceRoot = path.resolve(
-        dir,
-        process.env.WORKSPACE_ROOT || fileCfg.workspaceRoot || ".",
-      );
+      const workspaceRoot = path.resolve(dir, fileCfg.workspaceRoot || ".");
       return { workspaceRoot, configPath, fileCfg };
     }
     const parent = path.dirname(dir);

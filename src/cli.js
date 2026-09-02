@@ -4,8 +4,13 @@ import { readKnowledge } from "./read.js";
 import { searchKnowledge } from "./search.js";
 import { knowledgeStatus } from "./status.js";
 import { summarizeUsage } from "./usage.js";
+import { pinConfigToCwd } from "./config.js";
 
 const [command, ...rest] = process.argv.slice(2);
+
+// Always bind to the project you `cd` into, even if the shell still has
+// WORKSPACE_KB_CONFIG / WORKSPACE_ROOT from another repo.
+pinConfigToCwd(process.cwd());
 
 try {
   await main(command, rest);

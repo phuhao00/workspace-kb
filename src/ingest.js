@@ -69,5 +69,18 @@ export async function ingest() {
     configPath: cfg.configPath,
   };
   writeMeta(meta);
+
+  try {
+    const { runSetup } = await import("./setup.js");
+    const setup = runSetup({ quiet: true });
+    if (setup.ok) {
+      process.stderr.write(
+        `workspace-kb: auto-configured MCP "${setup.serverId}" (restart Cursor MCP to apply)\n`,
+      );
+    }
+  } catch {
+    // setup must not fail ingest
+  }
+
   return meta;
 }

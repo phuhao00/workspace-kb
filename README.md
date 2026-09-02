@@ -21,6 +21,29 @@ Tighter VRAM: `WORKSPACE_KB_MODEL=nomic-embed-text` (set matching `embedDim` in 
 npm install github:phuhao00/workspace-kb
 ```
 
+**Auto-setup (v1.2+):** on `npm install` / `npm update`, if `workspace-kb.config.json` exists in the install directory or a parent folder, the package writes:
+
+- `.cursor/mcp.json` — project-local MCP server (`<folder>-kb`, overridable via config)
+- `AGENTS.md` — managed `<!-- WORKSPACE-KB:START -->` block telling agents to call `kb_search` first
+
+Also re-runs after every successful `ingest`. Set `WORKSPACE_KB_SKIP_SETUP=1` to disable postinstall, or `"setup": { "enabled": false }` in config.
+
+After install/update, **restart MCP in Cursor** so `kb_search` / `kb_read` appear in chat.
+
+Optional config overrides:
+
+```json
+{
+  "setup": {
+    "mcpServerId": "my-project-kb",
+    "dashboardPort": 8788,
+    "agentsMd": true
+  }
+}
+```
+
+Skip rewriting `AGENTS.md` if it already mentions `kb_search` (custom docs preserved). Set `"agentsMd": false` to only write MCP.
+
 ## Configure
 
 Put `workspace-kb.config.json` at your **workspace root** (or set `WORKSPACE_KB_CONFIG`):

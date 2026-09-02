@@ -61,13 +61,20 @@ async function main(cmd, args) {
       await new Promise(() => {});
       return;
     }
+    case "setup":
+    case "init": {
+      const { runSetup } = await import("./setup.js");
+      runSetup();
+      return;
+    }
     default:
       throw new Error(
-        "usage: workspace-kb <ingest|search|read|status|stats|serve>\n" +
+        "usage: workspace-kb <ingest|search|read|status|stats|serve|setup>\n" +
           '  search "<query>" [--limit 6] [--kind skill] [--repo my-service]\n' +
           "  read <path> [heading]\n" +
           "  stats [--days 7]\n" +
-          "  serve [--port 8787]",
+          "  serve [--port 8787]\n" +
+          "  setup   # write .cursor/mcp.json + AGENTS.md (also runs on postinstall/ingest)",
       );
   }
 }

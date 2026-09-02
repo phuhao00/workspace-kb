@@ -125,6 +125,84 @@ h1 {
   font-size: 12px;
 }
 
+.btn.danger {
+  border-color: rgba(255, 92, 92, 0.35);
+  color: #ffb4b4;
+}
+
+.btn.primary {
+  border-color: rgba(91, 157, 255, 0.45);
+  background: rgba(91, 157, 255, 0.14);
+}
+
+.control-panel {
+  margin-bottom: 18px;
+}
+
+.control-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.control-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.control-stat {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+}
+
+.control-stat .k {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.control-stat .v {
+  margin-top: 4px;
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.control-stat .v.ok {
+  color: var(--green);
+}
+
+.control-stat .v.bad {
+  color: var(--red);
+}
+
+.control-msg {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.control-msg.error {
+  color: var(--red);
+}
+
 .metrics {
   display: grid;
   gap: 12px;

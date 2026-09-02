@@ -26,6 +26,23 @@
       </div>
     </header>
 
+    <section class="card control-panel" id="controlPanel">
+      <div class="control-head">
+        <div>
+          <h2>控制</h2>
+          <p class="hint">HTTP MCP 挂在看板 <code>/mcp</code> — 在此重启，无需进 Cursor Settings</p>
+        </div>
+        <div class="control-actions">
+          <button type="button" id="btnRestartMcp" class="btn primary">重启 MCP</button>
+          <button type="button" id="btnSetup" class="btn">重新配置</button>
+          <button type="button" id="btnIngest" class="btn">重建索引</button>
+          <button type="button" id="btnRestartServer" class="btn danger">重启看板</button>
+        </div>
+      </div>
+      <div class="control-grid" id="controlStatus"></div>
+      <p id="controlMsg" class="control-msg" hidden></p>
+    </section>
+
     <p id="banner" class="banner warn" hidden></p>
     <p id="metaLine" class="meta"></p>
 

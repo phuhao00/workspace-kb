@@ -3,6 +3,12 @@ const state = { days: 7 };
 const els = {
   daysSeg: document.getElementById("daysSeg"),
   refreshBtn: document.getElementById("refreshBtn"),
+  btnRestartMcp: document.getElementById("btnRestartMcp"),
+  btnSetup: document.getElementById("btnSetup"),
+  btnIngest: document.getElementById("btnIngest"),
+  btnRestartServer: document.getElementById("btnRestartServer"),
+  controlStatus: document.getElementById("controlStatus"),
+  controlMsg: document.getElementById("controlMsg"),
   banner: document.getElementById("banner"),
   metaLine: document.getElementById("metaLine"),
   metrics: document.getElementById("metrics"),
@@ -24,6 +30,103 @@ els.daysSeg.addEventListener("click", (ev) => {
 });
 
 els.refreshBtn.addEventListener("click", () => void load());
+
+els.refreshBtn.addEventListener("click", () => void load());
+els.btnRestartMcp.addEventListener("click", () => void runAction("restart-mcp"));
+els.btnSetup.addEventListener("click", () => void runAction("setup"));
+els.btnIngest.addEventListener("click", () => void runAction("ingest"));
+els.btnRestartServer.addEventListener("click", () => void runAction("restart-server"));
+
+async function runAction(name) {
+  setControlMsg("执行中…");
+  for (const btn of [
+    els.btnRestartMcp,
+    els.btnSetup,
+    els.btnIngest,
+    els.btnRestartServer,
+  ]) {
+    btn.disabled = true;
+  }
+  try {
+    const res = await fetch(`/api/actions/${name}`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.error || data.message || `HTTP ${res.status}`);
+    }
+    if (name === "restart-server") {
+      setControlMsg(`${data.message} — 页面 2 秒后刷新`, false);
+      setTimeout(() => location.reload(), 2000);
+      return;
+    }
+    setControlMsg(data.message || "完成", false);
+    await loadControl();
+    if (name === "ingest") {
+      pollIngest();
+    } else {
+      void load();
+    }
+  } catch (err) {
+    setControlMsg(err instanceof Error ? err.message : String(err), true);
+  } finally {
+    for (const btn of [
+      els.btnRestartMcp,
+      els.btnSetup,
+      els.btnIngest,
+      els.btnRestartServer,
+    ]) {
+      btn.disabled = false;
+    }
+  }
+}
+
+function setControlMsg(text, isError = false) {
+  els.controlMsg.hidden = false;
+  els.controlMsg.textContent = text;
+  els.controlMsg.classList.toggle("error", isError);
+}
+
+async function loadControl() {
+  const res = await fetch("/api/control", { cache: "no-store" });
+  const data = await res.json();
+  if (!res.ok) return;
+  const kb = data.kb || {};
+  const mcp = data.mcp || {};
+  const setup = data.setup || {};
+  const ingest = data.ingest || {};
+  els.controlStatus.innerHTML = [
+    stat("MCP 会话", String(mcp.sessions ?? "—"), ""),
+    stat("索引", kb.ready ? `${kb.chunkCount || 0} chunks` : "未就绪", kb.ready ? "ok" : "bad"),
+    stat("Workspace", kb.workspaceRoot || setup.workspaceRoot || "—", kb.ready ? "ok" : "bad"),
+    stat(
+      "Ingest",
+      ingest.running ? "运行中…" : ingest.error ? `失败: ${ingest.error}` : "空闲",
+      ingest.running ? "" : ingest.error ? "bad" : "ok",
+    ),
+    stat("MCP URL", setup.serverId ? `/${setup.serverId} → /mcp` : "—", ""),
+    stat("重启次数", String(mcp.restartCount ?? 0), ""),
+  ].join("");
+  els.btnIngest.disabled = Boolean(ingest.running);
+}
+
+function stat(label, value, tone) {
+  return `<div class="control-stat"><div class="k">${escapeHtml(label)}</div><div class="v ${tone}">${escapeHtml(value)}</div></div>`;
+}
+
+function pollIngest() {
+  const timer = setInterval(async () => {
+    await loadControl();
+    const res = await fetch("/api/control", { cache: "no-store" });
+    const data = await res.json();
+    if (!data.ingest?.running) {
+      clearInterval(timer);
+      void load();
+      setControlMsg(
+        data.ingest?.error ? `索引失败: ${data.ingest.error}` : "索引完成",
+        Boolean(data.ingest?.error),
+      );
+    }
+  }, 2000);
+}
 
 function fmt(n) {
   if (n == null || !Number.isFinite(Number(n))) return "—";
@@ -210,4 +313,8 @@ function escapeAttr(s) {
 }
 
 void load();
-setInterval(() => void load(), 15000);
+void loadControl();
+setInterval(() => {
+  void load();
+  void loadControl();
+}, 15000);

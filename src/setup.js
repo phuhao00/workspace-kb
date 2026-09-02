@@ -28,7 +28,13 @@ export function runSetup(options = {}) {
   const dashboardPort = Number(setupCfg.dashboardPort) || 8787;
   const mcpScript = path.join(PKG_ROOT, "src", "mcp.js");
 
-  const mcpResult = writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId);
+  const mcpResult = writeCursorMcp(
+    workspaceRoot,
+    configPath,
+    mcpScript,
+    serverId,
+    setupCfg,
+  );
   const ruleResult = writeCursorRule(workspaceRoot, serverId, setupCfg);
 
   let agentsResult = { agentsMd: "skipped" };
@@ -100,10 +106,12 @@ function toJsonPath(absPath) {
   return path.resolve(absPath).split(path.sep).join("/");
 }
 
-function writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId) {
+function writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId, setupCfg = {}) {
   const cursorDir = path.join(workspaceRoot, ".cursor");
   fs.mkdirSync(cursorDir, { recursive: true });
   const mcpPath = path.join(cursorDir, "mcp.json");
+  const dashboardPort = Number(setupCfg.dashboardPort) || 8787;
+  const mcpMode = String(setupCfg.mcpMode || "http").toLowerCase();
 
   /** @type {{ mcpServers?: Record<string, unknown> }} */
   let doc = { mcpServers: {} };
@@ -118,22 +126,27 @@ function writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId) {
     doc.mcpServers = {};
   }
 
-  /** @type {Record<string, string>} */
-  const env = {
-    WORKSPACE_KB_CONFIG: toJsonPath(configPath),
-    WORKSPACE_ROOT: toJsonPath(workspaceRoot),
-  };
-
-  doc.mcpServers[serverId] = {
-    command: "node",
-    args: [toJsonPath(mcpScript)],
-    cwd: toJsonPath(workspaceRoot),
-    env,
-    type: "stdio",
-  };
+  if (mcpMode === "stdio") {
+    /** @type {Record<string, string>} */
+    const env = {
+      WORKSPACE_KB_CONFIG: toJsonPath(configPath),
+      WORKSPACE_ROOT: toJsonPath(workspaceRoot),
+    };
+    doc.mcpServers[serverId] = {
+      command: "node",
+      args: [toJsonPath(mcpScript)],
+      cwd: toJsonPath(workspaceRoot),
+      env,
+      type: "stdio",
+    };
+  } else {
+    doc.mcpServers[serverId] = {
+      url: `http://127.0.0.1:${dashboardPort}/mcp`,
+    };
+  }
 
   fs.writeFileSync(mcpPath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
-  return { mcpPath, serverId };
+  return { mcpPath, serverId, mcpMode, mcpUrl: `http://127.0.0.1:${dashboardPort}/mcp` };
 }
 
 function writeCursorRule(workspaceRoot, serverId, setupCfg) {
@@ -169,10 +182,10 @@ function renderAgentsBlock(serverId, dashboardPort) {
 
 - **何时用**：架构、路由、运维手册、「X 在哪」—— 全仓盲扫之前先 \`kb_search\`。
 - **怎么用**：MCP \`kb_search\` → \`kb_read\`（单节），再到对应目录 \`rg\`；源码仍以代码为准。
-- **CLI**：\`npx workspace-kb search "<query>"\` · 看板：\`npx workspace-kb serve --port ${dashboardPort}\`
+- **CLI**：\`npx workspace-kb search "<query>"\` · 看板：\`npx workspace-kb serve --port ${dashboardPort}\`（MCP HTTP：\`http://127.0.0.1:${dashboardPort}/mcp\`）
 - **配置**：\`workspace-kb.config.json\` · **数据**：\`.workspace-kb/\`（gitignore）
 
-本仓 MCP：\`.cursor/mcp.json\` → \`${serverId}\`。安装/更新/ingest 后会自动写入；**请在 Cursor 里重启 MCP** 后对话才会调用 \`kb_search\`。
+本仓 MCP：\`.cursor/mcp.json\` → \`${serverId}\`（默认 HTTP，看板可点「重启 MCP」）。需先 \`npx workspace-kb serve\` 保持运行。
 ${MARKER_END}`;
 }
 

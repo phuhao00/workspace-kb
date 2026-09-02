@@ -89,6 +89,10 @@ npx workspace-kb serve
 
 Shows call counts, estimated returned/saved tokens (`chars/4`), daily trends, top queries, and recent events. Auto-refreshes every 15s.
 
+**Control panel (v1.3+):** restart HTTP MCP, re-run setup, trigger ingest, or restart the dashboard — no Cursor Settings trip.
+
+MCP defaults to **HTTP** on the dashboard port (`http://127.0.0.1:8787/mcp`). Keep `npx workspace-kb serve` running while using Cursor. Set `"setup": { "mcpMode": "stdio" }` for legacy stdio MCP.
+
 ## Cursor MCP
 
 ```json

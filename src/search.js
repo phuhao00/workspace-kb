@@ -2,6 +2,7 @@ import { loadRuntimeConfig } from "./config.js";
 import { openTable } from "./db.js";
 import { embedQuery } from "./embed.js";
 import { feedbackPathBoost } from "./feedback.js";
+import { relatedMemories } from "./memory.js";
 import { rewriteQuery } from "./rewrite.js";
 import { appendUsage, workspaceFileChars } from "./usage.js";
 
@@ -73,9 +74,10 @@ export async function searchKnowledge(query, options = {}) {
       rewriteTerms: rewrite.terms.length ? rewrite.terms : undefined,
       count: ranked.length,
       results: ranked,
+      relatedMemories: relatedMemories(query, 3),
       emptyHint:
         ranked.length === 0
-          ? "No hits — try broader terms, run ingest, or check kb_status workspaceRoot"
+          ? "No hits — try broader terms, run ingest, check kb_status workspaceRoot, or kb_memory_search for ops facts"
           : undefined,
     };
   } catch (err) {

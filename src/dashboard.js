@@ -5,6 +5,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   actionFeedback,
+  actionMemoryDelete,
+  actionMemoryList,
+  actionMemoryPrune,
+  actionMemoryPut,
+  actionMemorySearch,
   actionRestartMcp,
   actionRestartServer,
   actionSetup,
@@ -81,6 +86,46 @@ export async function startDashboard(options = {}) {
           ok: true,
           ...summarizeFeedback({ days: url.searchParams.get("days") || 30 }),
         });
+      }
+
+      if (url.pathname === "/api/memory" && req.method === "GET") {
+        const q = url.searchParams.get("q");
+        if (q) {
+          return sendJson(
+            res,
+            200,
+            actionMemorySearch({
+              query: q,
+              tag: url.searchParams.get("tag") || undefined,
+              limit: url.searchParams.get("limit") || 20,
+              includeExpired: url.searchParams.get("includeExpired") === "1",
+            }),
+          );
+        }
+        return sendJson(
+          res,
+          200,
+          actionMemoryList({
+            limit: url.searchParams.get("limit") || 50,
+            includeExpired: url.searchParams.get("includeExpired"),
+          }),
+        );
+      }
+
+      if (url.pathname === "/api/actions/memory-put" && req.method === "POST") {
+        const body = (await readJsonBody(req)) || {};
+        const payload = actionMemoryPut(body);
+        return sendJson(res, payload.ok ? 200 : 400, payload);
+      }
+
+      if (url.pathname === "/api/actions/memory-delete" && req.method === "POST") {
+        const body = (await readJsonBody(req)) || {};
+        const payload = actionMemoryDelete(body);
+        return sendJson(res, payload.ok ? 200 : 404, payload);
+      }
+
+      if (url.pathname === "/api/actions/memory-prune" && req.method === "POST") {
+        return sendJson(res, 200, actionMemoryPrune());
       }
 
       if (url.pathname === "/api/actions/restart-server" && req.method === "POST") {

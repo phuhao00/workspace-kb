@@ -204,8 +204,45 @@ h1 {
 }
 
 .health-panel,
-.projects-panel {
+.projects-panel,
+.memory-panel {
   margin-bottom: 16px;
+}
+
+.memory-form {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr 100px;
+  margin-bottom: 12px;
+}
+
+.memory-form textarea {
+  grid-column: 1 / -1;
+}
+
+.memory-form input,
+.memory-form textarea {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.memory-form button[type="submit"] {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.tag-pill {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(91, 157, 255, 0.12);
+  color: var(--accent);
 }
 
 .badge-health {

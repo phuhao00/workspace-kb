@@ -6,6 +6,13 @@ import { listProjects, registerProject } from "./daemon.js";
 import { appendFeedback, summarizeFeedback } from "./feedback.js";
 import { getHealth } from "./health.js";
 import { ingest } from "./ingest.js";
+import {
+  deleteMemory,
+  listMemory,
+  pruneExpiredMemory,
+  putMemory,
+  searchMemory,
+} from "./memory.js";
 import { runSetup } from "./setup.js";
 import { knowledgeStatus } from "./status.js";
 
@@ -36,6 +43,7 @@ export async function getControlStatus(ctx = {}) {
     health,
     projects: listProjects(),
     feedback: summarizeFeedback({ days: 30 }),
+    memory: listMemory({ limit: 20 }),
     setup: setup.ok
       ? {
           serverId: setup.serverId,
@@ -114,6 +122,41 @@ export function actionFeedback(body = {}) {
     note: body.note,
   });
   return { ok: true, feedback: row, summary: summarizeFeedback({ days: 30 }) };
+}
+
+export function actionMemoryPut(body = {}) {
+  return putMemory({
+    text: body.text,
+    key: body.key,
+    tags: body.tags,
+    ttlDays: body.ttlDays,
+    source: body.source || "dashboard",
+    force: body.force === true,
+  });
+}
+
+export function actionMemorySearch(body = {}) {
+  return searchMemory({
+    query: body.query,
+    tag: body.tag,
+    limit: body.limit,
+    includeExpired: body.includeExpired === true,
+  });
+}
+
+export function actionMemoryList(query = {}) {
+  return listMemory({
+    limit: query.limit,
+    includeExpired: query.includeExpired === true || query.includeExpired === "1",
+  });
+}
+
+export function actionMemoryDelete(body = {}) {
+  return deleteMemory({ id: body.id, key: body.key });
+}
+
+export function actionMemoryPrune() {
+  return pruneExpiredMemory();
 }
 
 /**

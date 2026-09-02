@@ -67,6 +67,8 @@ export function loadRuntimeConfig() {
     metaPath: path.join(dataDir, "meta.json"),
     usagePath: path.join(dataDir, "usage.jsonl"),
     feedbackPath: path.join(dataDir, "feedback.jsonl"),
+    memoryDir: path.join(dataDir, "memory"),
+    memoryFactsPath: path.join(dataDir, "memory", "facts.jsonl"),
     cacheDir: path.join(dataDir, "cache"),
     tableName: "chunks",
     setup,

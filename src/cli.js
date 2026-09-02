@@ -121,16 +121,67 @@ async function main(cmd, args) {
       process.stdout.write(`${JSON.stringify(row, null, 2)}\n`);
       return;
     }
+    case "memory": {
+      const { putMemory, searchMemory, listMemory, deleteMemory, pruneExpiredMemory } =
+        await import("./memory.js");
+      const sub = args[0] || "list";
+      const restArgs = args.slice(1);
+      if (sub === "put") {
+        const tagsIdx = restArgs.indexOf("--tags");
+        const ttlIdx = restArgs.indexOf("--ttl");
+        const keyIdx = restArgs.indexOf("--key");
+        const tags =
+          tagsIdx >= 0 ? String(restArgs[tagsIdx + 1] || "").split(/[,，]/) : [];
+        const ttlDays = ttlIdx >= 0 ? Number(restArgs[ttlIdx + 1]) : undefined;
+        const key = keyIdx >= 0 ? restArgs[keyIdx + 1] : undefined;
+        const text = restArgs
+          .filter((a, i, arr) => {
+            if (a.startsWith("--")) return false;
+            if (i > 0 && ["--tags", "--ttl", "--key"].includes(arr[i - 1])) return false;
+            return true;
+          })
+          .join(" ")
+          .trim();
+        if (!text) throw new Error('usage: workspace-kb memory put "text" [--key k] [--tags a,b] [--ttl 90]');
+        const result = putMemory({ text, key, tags, ttlDays, source: "cli" });
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+        if (!result.ok) process.exitCode = 1;
+        return;
+      }
+      if (sub === "search") {
+        const q = restArgs.join(" ").trim();
+        process.stdout.write(`${JSON.stringify(searchMemory({ query: q }), null, 2)}\n`);
+        return;
+      }
+      if (sub === "delete") {
+        const idIdx = restArgs.indexOf("--id");
+        const keyIdx = restArgs.indexOf("--key");
+        const result = deleteMemory({
+          id: idIdx >= 0 ? restArgs[idIdx + 1] : undefined,
+          key: keyIdx >= 0 ? restArgs[keyIdx + 1] : restArgs[0],
+        });
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+        if (!result.ok) process.exitCode = 1;
+        return;
+      }
+      if (sub === "prune") {
+        process.stdout.write(`${JSON.stringify(pruneExpiredMemory(), null, 2)}\n`);
+        return;
+      }
+      process.stdout.write(`${JSON.stringify(listMemory({ limit: 50 }), null, 2)}\n`);
+      return;
+    }
     default:
       throw new Error(
-        "usage: workspace-kb <ingest|search|read|status|health|stats|serve|start|stop|projects|setup|init|feedback>\n" +
+        "usage: workspace-kb <ingest|search|read|status|health|stats|serve|start|stop|projects|setup|init|feedback|memory>\n" +
           "  ingest [--full]\n" +
           '  search "<query>" [--limit 6] [--kind skill] [--repo my-service]\n' +
           "  read <path> [heading]\n" +
           "  start|stop|serve [--port 8787]\n" +
           "  init [--force] [--name my-app] [--port 8787]\n" +
           "  setup   # write .cursor/mcp.json + rules + skill + Continue snippet\n" +
-          "  feedback [--bad] <query note>",
+          "  feedback [--bad] <query note>\n" +
+          '  memory put|search|list|delete|prune  # project ops facts (Cursor+Codex+CLI)',
       );
   }
 }

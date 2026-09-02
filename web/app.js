@@ -13,6 +13,9 @@ const els = {
   healthBadge: document.getElementById("healthBadge"),
   healthList: document.getElementById("healthList"),
   projectsList: document.getElementById("projectsList"),
+  memoryBody: document.getElementById("memoryBody"),
+  memoryForm: document.getElementById("memoryForm"),
+  btnMemoryPrune: document.getElementById("btnMemoryPrune"),
   feedbackSummary: document.getElementById("feedbackSummary"),
   banner: document.getElementById("banner"),
   metaLine: document.getElementById("metaLine"),
@@ -43,6 +46,16 @@ els.btnSetup.addEventListener("click", () => void runAction("setup"));
 els.btnIngest.addEventListener("click", () => void runAction("ingest", { full: false }));
 els.btnIngestFull.addEventListener("click", () => void runAction("ingest", { full: true }));
 els.btnRestartServer.addEventListener("click", () => void runAction("restart-server"));
+els.btnMemoryPrune.addEventListener("click", () => void pruneMemory());
+els.memoryForm.addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  void putMemoryFromForm();
+});
+els.memoryBody.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-del-id]");
+  if (!btn) return;
+  void deleteMemory(btn.dataset.delId);
+});
 
 els.eventsBody.addEventListener("click", (ev) => {
   const btn = ev.target.closest("button[data-fb]");
@@ -146,12 +159,85 @@ async function loadControl() {
 
   renderHealth(health);
   renderProjects(data.projects || []);
+  renderMemory(data.memory?.facts || []);
   const fb = data.feedback || {};
   els.feedbackSummary.textContent = fb.total
     ? `有用 ${fb.useful} · 没用 ${fb.useless} · 好评率 ${
         fb.usefulRate == null ? "—" : `${Math.round(fb.usefulRate * 100)}%`
       }`
     : "尚无反馈 — 在 Recent events 右侧点 👍/👎";
+}
+
+function renderMemory(facts) {
+  els.memoryBody.innerHTML = facts.length
+    ? facts
+        .map((f) => {
+          const tags = (f.tags || [])
+            .map((t) => `<span class="tag-pill">${escapeHtml(t)}</span>`)
+            .join("");
+          return `<tr>
+            <td><code>${escapeHtml(f.key || "")}</code></td>
+            <td title="${escapeAttr(f.text || "")}">${escapeHtml(f.text || "")}</td>
+            <td>${tags || "—"}</td>
+            <td>${f.expiresAt ? formatTs(f.expiresAt) : "永不过期"}</td>
+            <td><button type="button" class="btn" data-del-id="${escapeAttr(f.id)}">删</button></td>
+          </tr>`;
+        })
+        .join("")
+    : `<tr><td colspan="5" class="empty">暂无项目记忆 — 写入运维事实，Cursor/Codex/CLI 可共享</td></tr>`;
+}
+
+async function putMemoryFromForm() {
+  const text = els.memoryForm.querySelector("#memText").value.trim();
+  const key = els.memoryForm.querySelector("#memKey").value.trim();
+  const tags = els.memoryForm
+    .querySelector("#memTags")
+    .value.split(/[,，]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const ttlDays = Number(els.memoryForm.querySelector("#memTtl").value);
+  try {
+    const res = await fetch("/api/actions/memory-put", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, key: key || undefined, tags, ttlDays }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.ok === false) throw new Error(data.error || "put failed");
+    els.memoryForm.reset();
+    els.memoryForm.querySelector("#memTtl").value = "90";
+    setControlMsg(`已写入记忆 ${data.fact?.key || ""}`, false);
+    await loadControl();
+  } catch (err) {
+    setControlMsg(err instanceof Error ? err.message : String(err), true);
+  }
+}
+
+async function deleteMemory(id) {
+  try {
+    const res = await fetch("/api/actions/memory-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.ok === false) throw new Error(data.error || "delete failed");
+    setControlMsg("已删除", false);
+    await loadControl();
+  } catch (err) {
+    setControlMsg(err instanceof Error ? err.message : String(err), true);
+  }
+}
+
+async function pruneMemory() {
+  try {
+    const res = await fetch("/api/actions/memory-prune", { method: "POST" });
+    const data = await res.json();
+    setControlMsg(`清理过期 ${data.removed || 0} 条`, false);
+    await loadControl();
+  } catch (err) {
+    setControlMsg(err instanceof Error ? err.message : String(err), true);
+  }
 }
 
 function renderHealth(health) {

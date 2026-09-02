@@ -8,7 +8,7 @@ Index curated docs / skills / wiki — **not** your full source tree. Agents use
 
 | | |
 |---|---|
-| Version | **1.4** |
+| Version | **1.5** |
 | License | MIT |
 | Repo | https://github.com/phuhao00/workspace-kb |
 
@@ -138,7 +138,29 @@ Open **http://127.0.0.1:8787/**
 | POST | `/api/actions/restart-server` | Respawn dashboard |
 | * | `/mcp` | Streamable HTTP MCP |
 
-## Features (v1.4)
+## Project memory (v1.5)
+
+Shared **ops facts** for Cursor + Codex + CLI (not IDE personal Memories).
+
+```bash
+npx workspace-kb memory put "测服 hallapi HTTP :8080" --key fish37-hallapi --tags ops,test-env --ttl 90
+npx workspace-kb memory search "hallapi"
+npx workspace-kb memory list
+npx workspace-kb memory delete --key fish37-hallapi
+npx workspace-kb memory prune
+```
+
+MCP: `kb_memory_put` · `kb_memory_search` · `kb_memory_list` · `kb_memory_delete`.  
+Dashboard panel **项目记忆** for audit. Data: `.workspace-kb/memory/facts.jsonl`.
+
+| Store | Use for |
+|-------|---------|
+| Cursor / Codex Memories | Personal preferences |
+| AGENTS.md / rules | Team hard rules (committed) |
+| `kb_search` | Docs / skills / wiki |
+| `kb_memory_*` | Shared ops conclusions (redacted, TTL) |
+
+## Features (v1.4+)
 
 | Area | Behavior |
 |------|----------|

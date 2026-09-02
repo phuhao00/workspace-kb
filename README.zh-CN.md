@@ -8,7 +8,7 @@
 
 | | |
 |---|---|
-| 版本 | **1.4** |
+| 版本 | **1.5** |
 | 协议 | MIT |
 | 仓库 | https://github.com/phuhao00/workspace-kb |
 
@@ -140,7 +140,29 @@ npx workspace-kb serve --port 8787
 | POST | `/api/actions/restart-server` | 重启看板进程 |
 | * | `/mcp` | Streamable HTTP MCP |
 
-## 功能一览（v1.4）
+## 项目记忆（v1.5）
+
+跨 **Cursor + Codex + CLI** 共享的运维事实（不是 IDE 个人 Memories）。
+
+```bash
+npx workspace-kb memory put "测服 hallapi HTTP :8080" --key fish37-hallapi --tags ops,test-env --ttl 90
+npx workspace-kb memory search "hallapi"
+npx workspace-kb memory list
+npx workspace-kb memory delete --key fish37-hallapi
+npx workspace-kb memory prune
+```
+
+MCP：`kb_memory_put` · `kb_memory_search` · `kb_memory_list` · `kb_memory_delete`。  
+看板 **项目记忆** 面板可审计增删。数据：`.workspace-kb/memory/facts.jsonl`。
+
+| 存哪 | 用途 |
+|------|------|
+| Cursor / Codex Memories | 个人偏好 |
+| AGENTS.md / rules | 团队硬性规范（可提交） |
+| `kb_search` | 文档 / Skill / Wiki |
+| `kb_memory_*` | 共享运维结论（脱敏、TTL） |
+
+## 功能一览（v1.4+）
 
 | 能力 | 行为 |
 |------|------|

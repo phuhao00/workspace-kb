@@ -174,20 +174,22 @@ function writeCursorRule(workspaceRoot, serverId, setupCfg) {
   const rulesDir = path.join(workspaceRoot, ".cursor", "rules");
   fs.mkdirSync(rulesDir, { recursive: true });
   const rulePath = path.join(rulesDir, "workspace-kb-routing.mdc");
-  const body = `---
-description: >-
-  Always call workspace-kb MCP (kb_search) before broad markdown reads or
-  multi-repo scans in this workspace.
-alwaysApply: true
----
-
-# Workspace knowledge base (\`${serverId}\`)
-
-- **Must** call MCP \`kb_search\` first for architecture, routing, ops runbooks, symptoms, or "where is X" — then \`kb_read\` one heading, then \`rg\` in the cited repo only.
-- Do **not** open large guides or scan every child repo before searching the KB index.
-- Source code beats stale docs; KB is for finding the right doc/repo quickly.
-- Prefer HTTP MCP via \`npx workspace-kb start\` / dashboard \`/mcp\`. If \`kb_status\` shows wrong \`workspaceRoot\`, restart MCP from the dashboard.
-`;
+  const body = [
+    "---",
+    "description: >-",
+    "  Always call workspace-kb MCP (kb_search) before broad markdown reads or",
+    "  multi-repo scans; use kb_memory_* for shared ops facts across Cursor/Codex.",
+    "alwaysApply: true",
+    "---",
+    "",
+    `# Workspace knowledge base (\`${serverId}\`)`,
+    "",
+    "- **Must** call MCP `kb_search` first for architecture, routing, ops runbooks, symptoms, or \"where is X\" — then `kb_read` one heading, then `rg` in the cited repo only.",
+    "- For **shared ops facts** (env ports, prior triage): `kb_memory_search` first; after a durable conclusion `kb_memory_put` (redact secrets). Do **not** store personal preferences — use Cursor Memories / Codex Memories.",
+    "- Team hard rules stay in `AGENTS.md` / `.cursor/rules` — memory does not replace them.",
+    "- Prefer HTTP MCP via `npx workspace-kb start` / dashboard `/mcp`. Restart MCP from the dashboard if `workspaceRoot` looks wrong.",
+    "",
+  ].join("\n");
   fs.writeFileSync(rulePath, body, "utf8");
   return { cursorRule: "written", rulePath };
 }
@@ -199,36 +201,50 @@ function writeCursorSkill(workspaceRoot, serverId, setupCfg) {
   const skillDir = path.join(workspaceRoot, ".cursor", "skills", "query-workspace-kb");
   fs.mkdirSync(skillDir, { recursive: true });
   const skillPath = path.join(skillDir, "SKILL.md");
-  const body = `---
-name: query-workspace-kb
-description: >-
-  Search the local workspace-kb LanceDB index for architecture, ops, routing,
-  and skill snippets before reading large docs or scanning repos. Use when
-  locating a service, diagnosing a symptom, or answering architecture/ops
-  questions.
----
-
-# Query workspace knowledge (\`${serverId}\`)
-
-1. Call \`kb_search\` with task nouns (repo, symptom, API, hop). Limit 6–8.
-2. Open only the cited path + heading via \`kb_read\` or a targeted file range.
-3. Then \`rg\` inside the returned repo only. Do not scan the whole workspace.
-4. If MCP is unavailable: \`npx workspace-kb search -- "<query>"\`.
-5. Source code wins over stale wiki/docs. This index is not a source-code search.
-
-Empty index: \`npx workspace-kb ingest\` (needs Ollama or openai embed provider).
-
-Dashboard: \`npx workspace-kb start\` then open the printed URL. Use **重启 MCP** there.
-
-## Examples
-
-\`\`\`text
-kb_search query="payment failure"
-kb_search query="login token"
-npx workspace-kb search "architecture overview"
-npx workspace-kb stats
-\`\`\`
-`;
+  const body = [
+    "---",
+    "name: query-workspace-kb",
+    "description: >-",
+    "  Search workspace-kb docs (kb_search) and shared project ops memory",
+    "  (kb_memory_*). Use for architecture, symptoms, env facts, and triage",
+    "  conclusions across Cursor/Codex/CLI. Not for personal preferences.",
+    "---",
+    "",
+    `# Query workspace knowledge (\`${serverId}\`)`,
+    "",
+    "## Where to look",
+    "",
+    "| Need | Tool |",
+    "|------|------|",
+    "| Docs / skills / wiki | `kb_search` → `kb_read` |",
+    "| Shared ops facts / prior triage | `kb_memory_search` / `kb_memory_put` |",
+    "| Personal preference | Cursor Memories or Codex Memories (not kb_memory) |",
+    "| Team hard rules | `AGENTS.md` / rules (not memory) |",
+    "",
+    "## Docs flow",
+    "",
+    "1. `kb_search` (limit 6–8). Note `relatedMemories` in the response.",
+    "2. `kb_read` one cited heading; then `rg` only in that repo.",
+    "3. CLI fallback: `npx workspace-kb search -- \"<query>\"`.",
+    "",
+    "## Memory flow (cross Cursor + Codex + CLI)",
+    "",
+    "1. Before repeating an investigation: `kb_memory_search`.",
+    "2. After a durable, redacted conclusion: `kb_memory_put` with tags + optional `ttlDays` (default 90).",
+    "3. Audit/delete on the dashboard **项目记忆** panel.",
+    "",
+    "Empty index: `npx workspace-kb ingest`. Dashboard: `npx workspace-kb start`.",
+    "",
+    "## Examples",
+    "",
+    "```text",
+    'kb_search query="充值未到账"',
+    'kb_memory_search query="fish37 hallapi"',
+    'kb_memory_put text="测服 hallapi HTTP 在 fish37:8080" tags=["ops","test-env"] ttlDays=90',
+    "npx workspace-kb memory list",
+    "```",
+    "",
+  ].join("\n");
   fs.writeFileSync(skillPath, body, "utf8");
   return { cursorSkill: "written", skillPath };
 }

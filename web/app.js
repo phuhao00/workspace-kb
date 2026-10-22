@@ -259,15 +259,31 @@ function renderHealth(health) {
   const checks = health.checks || [];
   els.healthList.innerHTML = checks.length
     ? checks
-        .map(
-          (c) => `<div class="health-row ${c.ok ? "ok" : "bad"}">
+        .map((c) => {
+          const clients = Array.isArray(c.clients) ? c.clients : [];
+          const clientLines = clients
+            .map((item) => {
+              const mark = item.ok ? "✓" : item.exists ? "△" : "·";
+              const rel = shortenPath(item.path || "");
+              return `<div class="health-client">${mark} ${escapeHtml(item.id)} · ${escapeHtml(rel)}</div>`;
+            })
+            .join("");
+          return `<div class="health-row ${c.ok ? "ok" : "bad"}">
             <strong>${escapeHtml(c.id)}</strong>
             <span>${escapeHtml(c.detail || "")}</span>
             ${c.hint ? `<em>${escapeHtml(c.hint)}</em>` : ""}
-          </div>`,
-        )
+            ${clientLines}
+          </div>`;
+        })
         .join("")
     : `<div class="empty">No health data</div>`;
+}
+
+function shortenPath(p) {
+  if (!p) return "";
+  const parts = String(p).replace(/\\/g, "/").split("/");
+  if (parts.length <= 3) return p;
+  return parts.slice(-3).join("/");
 }
 
 function renderProjects(projects) {

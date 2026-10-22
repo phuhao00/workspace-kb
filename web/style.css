@@ -536,3 +536,10 @@ th {
     grid-column: span 1;
   }
 }
+
+.health-client {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 2px;
+  padding-left: 0.5rem;
+}

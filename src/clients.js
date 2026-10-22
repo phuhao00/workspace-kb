@@ -178,7 +178,7 @@ export function writeCodexMcp(opts) {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   let text = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, "utf8") : "";
   text = upsertCodexMcpSection(text, serverId, mcpUrl);
-  fs.writeFileSync(targetPath, text.endsWith("\n") ? text : `${text}\n`, "utf8");
+  writeFileResilient(targetPath, text.endsWith("\n") ? text : `${text}\n`);
 
   /** @type {{ codex: string, path: string, cli?: string }} */
   const result = { codex: "written", path: targetPath };
@@ -257,7 +257,7 @@ export function writeWorkbuddyMcp(opts) {
     doc.mcpServers[serverId] = { url: mcpUrl };
   }
 
-  fs.writeFileSync(mcpPath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
+  writeFileResilient(mcpPath, `${JSON.stringify(doc, null, 2)}\n`);
   return { workbuddy: "written", path: mcpPath };
 }
 
@@ -282,10 +282,9 @@ export function writeCodebuddyPlugin(opts) {
       "Local LanceDB knowledge base for agents (Cursor/Codex/WorkBuddy). Requires `npx workspace-kb up` on this machine.",
     author: { name: "workspace-kb" },
   };
-  fs.writeFileSync(
+  writeFileResilient(
     path.join(pluginRoot, "plugin.json"),
     `${JSON.stringify(pluginJson, null, 2)}\n`,
-    "utf8",
   );
 
   const mcpDoc = {
@@ -293,15 +292,14 @@ export function writeCodebuddyPlugin(opts) {
       [serverId]: { url: mcpUrl },
     },
   };
-  fs.writeFileSync(
+  writeFileResilient(
     path.join(pluginRoot, ".mcp.json"),
     `${JSON.stringify(mcpDoc, null, 2)}\n`,
-    "utf8",
   );
 
   const skillDir = path.join(pluginRoot, "skills", "query-workspace-kb");
   fs.mkdirSync(skillDir, { recursive: true });
-  fs.writeFileSync(path.join(skillDir, "SKILL.md"), renderSharedSkillMd(serverId), "utf8");
+  writeFileResilient(path.join(skillDir, "SKILL.md"), renderSharedSkillMd(serverId));
 
   const readme = [
     "# workspace-kb (CodeBuddy / WorkBuddy plugin)",
@@ -325,7 +323,7 @@ export function writeCodebuddyPlugin(opts) {
     "Keep the dashboard running while agents call `kb_search` / `kb_memory_*`.",
     "",
   ].join("\n");
-  fs.writeFileSync(path.join(pluginRoot, "README.md"), readme, "utf8");
+  writeFileResilient(path.join(pluginRoot, "README.md"), readme);
 
   return { codebuddyPlugin: "written", path: pluginRoot };
 }
@@ -345,11 +343,11 @@ export function writeAgentsSkill(workspaceRoot, serverId) {
 }
 
 /**
- * Windows sometimes returns UNKNOWN/EPERM on hot skill files; retry briefly.
+ * Windows sometimes returns UNKNOWN/EPERM on hot skill/config files; retry briefly.
  * @param {string} filePath
  * @param {string} body
  */
-function writeFileResilient(filePath, body) {
+export function writeFileResilient(filePath, body) {
   let lastErr;
   for (let i = 0; i < 5; i++) {
     try {
@@ -361,10 +359,22 @@ function writeFileResilient(filePath, body) {
       if (code && !["UNKNOWN", "EPERM", "EBUSY", "EACCES"].includes(code)) {
         throw err;
       }
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 40 * (i + 1));
+      sleepMs(40 * (i + 1));
     }
   }
   throw lastErr;
+}
+
+/** @param {number} ms */
+function sleepMs(ms) {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  } catch {
+    const until = Date.now() + ms;
+    while (Date.now() < until) {
+      /* busy backoff when Atomics.wait is unavailable */
+    }
+  }
 }
 
 /**

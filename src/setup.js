@@ -8,6 +8,7 @@ import {
   writeCodebuddyPlugin,
   writeCodexMcp,
   writeWorkbuddyMcp,
+  writeFileResilient,
   renderSharedSkillMd,
 } from "./clients.js";
 import { registerProject } from "./daemon.js";
@@ -75,7 +76,7 @@ export function runSetup(options = {}) {
           clients,
         },
       };
-      fs.writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+      writeFileResilient(configPath, `${JSON.stringify(next, null, 2)}\n`);
     } catch {
       // non-fatal
     }
@@ -335,7 +336,7 @@ function writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId, setupCfg
     };
   }
 
-  fs.writeFileSync(mcpPath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
+  writeFileResilient(mcpPath, `${JSON.stringify(doc, null, 2)}\n`);
   return {
     mcpPath,
     serverId,
@@ -368,7 +369,7 @@ function writeCursorRule(workspaceRoot, serverId, setupCfg) {
     "- Prefer HTTP MCP via `npx workspace-kb up` / dashboard `/mcp`. Same URL works for Cursor, Codex, and WorkBuddy. Restart MCP from the dashboard if `workspaceRoot` looks wrong.",
     "",
   ].join("\n");
-  fs.writeFileSync(rulePath, body, "utf8");
+  writeFileResilient(rulePath, body);
   return { cursorRule: "written", rulePath };
 }
 
@@ -379,7 +380,7 @@ function writeCursorSkill(workspaceRoot, serverId, setupCfg) {
   const skillDir = path.join(workspaceRoot, ".cursor", "skills", "query-workspace-kb");
   fs.mkdirSync(skillDir, { recursive: true });
   const skillPath = path.join(skillDir, "SKILL.md");
-  fs.writeFileSync(skillPath, renderSharedSkillMd(serverId), "utf8");
+  writeFileResilient(skillPath, renderSharedSkillMd(serverId));
   return { cursorSkill: "written", skillPath };
 }
 
@@ -416,7 +417,7 @@ function writeContinueConfig(workspaceRoot, configPath, serverId, dashboardPort,
     ],
   };
   const outPath = path.join(contDir, "workspace-kb.mcp.json");
-  fs.writeFileSync(outPath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
+  writeFileResilient(outPath, `${JSON.stringify(doc, null, 2)}\n`);
   return { continueConfig: "written", path: outPath };
 }
 

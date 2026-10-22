@@ -1,0 +1,8 @@
+{
+  "name": "workspace-kb",
+  "version": "1.0.0",
+  "description": "Local LanceDB knowledge base for agents. Requires `npx workspace-kb up` on this machine — this plugin only wires MCP + Skill.",
+  "author": {
+    "name": "workspace-kb"
+  }
+}

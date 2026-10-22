@@ -6,5 +6,11 @@
   "paths": ["docs", "*.md"],
   "childRepos": [],
   "childGlobs": ["README*.md", "docs/**/*.md"],
-  "skipDirs": ["node_modules", "vendor", ".git", ".next", ".workspace-kb"]
+  "skipDirs": ["node_modules", "vendor", ".git", ".next", ".workspace-kb"],
+  "setup": {
+    "mcpServerId": "workspace-kb",
+    "dashboardPort": 8787,
+    "mcpMode": "http",
+    "clients": ["cursor", "codex", "workbuddy", "continue"]
+  }
 }

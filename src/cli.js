@@ -164,7 +164,26 @@ async function main(cmd, args) {
     }
     case "setup": {
       const { runSetup } = await import("./setup.js");
-      runSetup({ port: parsePort(args) });
+      const { parseClientsCliArgs } = await import("./clients.js");
+      const clientOpts = parseClientsCliArgs(args);
+      runSetup({
+        port: parsePort(args),
+        clients: clientOpts.clients,
+        global: clientOpts.global,
+      });
+      return;
+    }
+    case "install-clients": {
+      const { installClients } = await import("./setup.js");
+      const { parseClientsCliArgs } = await import("./clients.js");
+      const clientOpts = parseClientsCliArgs(args);
+      const result = installClients({
+        port: parsePort(args),
+        clients: clientOpts.clients,
+        global: clientOpts.global,
+        quiet: args.includes("--quiet"),
+      });
+      if (result?.ok === false) process.exitCode = 1;
       return;
     }
     case "init": {
@@ -249,7 +268,11 @@ async function main(cmd, args) {
           "  down [--port <n>]                         # stop\n" +
           "  watch                                     # foreground auto-ingest only\n" +
           "\n" +
-          "Also: start|stop|serve|setup|init|projects|health|status|stats|search|read|memory|feedback\n" +
+          "Clients (Cursor · Codex · WorkBuddy):\n" +
+          "  install-clients [--port <n>] [--clients cursor,codex,workbuddy] [--global]\n" +
+          "  setup           [--port <n>] [--clients …] [--global]\n" +
+          "\n" +
+          "Also: start|stop|serve|init|projects|health|status|stats|search|read|memory|feedback\n" +
           "Disable auto-ingest: --no-watch | autoIngest:false | WORKSPACE_KB_AUTO_INGEST=0\n" +
           "Upgrade if commands missing: npm i github:phuhao00/workspace-kb#master",
       );
@@ -295,3 +318,4 @@ function parsePort(args) {
   }
   return undefined;
 }
+

@@ -70,21 +70,53 @@ npx workspace-kb up --port 8700                  # 同步配置并启动
 npm install github:phuhao00/workspace-kb#master
 ```
 
-### 自动配置（install · update · ingest · `setup`）
+### 自动配置（install · update · ingest · `setup` / `install-clients`）
 
-若找到 `workspace-kb.config.json`（当前目录、父目录，或 postinstall 的 `INIT_CWD`），会自动写入：
+若找到 `workspace-kb.config.json`（当前目录、父目录，或 postinstall 的 `INIT_CWD`），会按 `setup.clients`（默认含 Cursor · Codex · WorkBuddy · Continue）写入：
 
 | 路径 | 作用 |
 |------|------|
-| `.cursor/mcp.json` | MCP（默认 **HTTP** → `http://127.0.0.1:<端口>/mcp`） |
+| `.cursor/mcp.json` | Cursor MCP（默认 **HTTP** → `http://127.0.0.1:<端口>/mcp`） |
 | `.cursor/rules/workspace-kb-routing.mdc` | `alwaysApply`，要求先 `kb_search` |
-| `.cursor/skills/query-workspace-kb/SKILL.md` | Cursor Skill（架构/运维问题） |
+| `.cursor/skills/query-workspace-kb/SKILL.md` | Cursor Skill |
+| `.codex/config.toml` | Codex `[mcp_servers.<id>]` HTTP URL（项目级，可提交） |
+| `.mcp.json` | WorkBuddy / CodeBuddy 项目 MCP |
+| `plugins/workspace-kb/` | CodeBuddy 可安装插件（仅接线 + Skill，不含向量库） |
+| `.agents/skills/query-workspace-kb/SKILL.md` | 多宿主 Skill |
 | `.continue/workspace-kb.mcp.json` | Continue.dev 配置片段 |
 | `AGENTS.md` 中 `<!-- WORKSPACE-KB:… -->` | Agent 路由说明（`agentsMd: false` 或已有自定义 `kb_search` 文档时跳过） |
 
-关闭自动配置：`WORKSPACE_KB_SKIP_SETUP=1` 或 `"setup": { "enabled": false }`。
+关闭自动配置：`WORKSPACE_KB_SKIP_SETUP=1` 或 `"setup": { "enabled": false }`。  
+只接部分客户端：`"setup": { "clients": ["cursor","codex"] }` 或 `install-clients --clients cursor,codex`。
 
-升级后：**重启 `start`/`serve`**，再在看板点 **重启 MCP**（或在 Cursor 里重载 MCP）。
+升级后：**重启 `up`/`start`/`serve`**，再在看板点 **重启 MCP**（或在各客户端里重载 MCP）。
+
+## 三端同开（Cursor · Codex · WorkBuddy）
+
+**一个引擎、一个索引、一个记忆库**，三端共用同一 HTTP MCP URL：
+
+```bash
+npx workspace-kb up --port 8787          # 起看板 + /mcp + 自动增量
+npx workspace-kb install-clients         # 幂等写入三端配置（端口与 up 一致）
+```
+
+| 客户端 | 怎么用 |
+|--------|--------|
+| **Cursor** | 项目 `.cursor/mcp.json` 已写好；重载 MCP |
+| **Codex** | 读项目 `.codex/config.toml`（需信任该项目）；或 `install-clients --global` 写 `~/.codex/config.toml` / `codex mcp add` |
+| **WorkBuddy** | 启用 `plugins/workspace-kb`，或 Settings→MCP 粘贴 URL，或读根目录 `.mcp.json` |
+
+示例模板：[examples/codex.config.toml](examples/codex.config.toml) · [examples/workbuddy.mcp.json](examples/workbuddy.mcp.json) · [examples/codebuddy-plugin/](examples/codebuddy-plugin/)。
+
+### 三端故障排查
+
+| 现象 | 处理 |
+|------|------|
+| 工具列表没有 `kb_search` | 确认 `up`/`start` 在跑；URL 端口与 `setup.dashboardPort` 一致；客户端重载 MCP |
+| Codex 不读项目级 config | 项目需在 Codex 信任列表；或改用 `--global` |
+| WorkBuddy 连上但 workspaceRoot 不对 | 用 HTTP MCP（不要 stdio）；看板健康检查看 `workspaceRoot` |
+| 一端写入记忆另一端搜不到 | 三端必须指向**同一** `/mcp` URL，不要各起一份 stdio |
+| `EADDRINUSE` | 该口已有实例；直接用或 `down` / 换端口后再 `install-clients` |
 
 ## CLI 参考
 
@@ -95,13 +127,14 @@ workspace-kb <命令>
   down [--port <n>]                        # ★ 停止
   watch                                    # 仅自动增量（前台）
   init [--force] [--name 应用名] [--port <n>]
-  setup [--port <n>]
+  setup [--port <n>] [--clients cursor,codex,workbuddy] [--global]
+  install-clients [--port <n>] [--clients …] [--global]  # ★ 三端接线
   ingest [--full]
   start | stop | serve [--port <1-65535|auto>] [--no-watch]
   search | read | status | health | stats | projects | memory | feedback
 ```
 
-日常：`up` / `down`。看板运行期间监听配置路径下的 `.md` 变更并自动增量索引。
+日常：`up` → `install-clients` → 各客户端重载 MCP。看板运行期间监听配置路径下的 `.md` 变更并自动增量索引。
 
 ## 看板（Dashboard）
 
@@ -116,7 +149,7 @@ npx workspace-kb serve --port 8787
 | 面板 | 能力 |
 |------|------|
 | **控制** | 重启 MCP · 重新配置 · 增量/全量索引 · 重启看板 |
-| **健康检查** | config · workspaceRoot · 索引 · 向量服务 · MCP · 命中率 |
+| **健康检查** | config · workspaceRoot · 索引 · 向量服务 · MCP · **已配置客户端** · 命中率 |
 | **项目记忆** | 写入 / 按 key·id 删除 / 清理过期；列表可审计 |
 | **多项目** | 本机已注册实例与端口 |
 | **指标** | 调用次数 · 命中率 · 估算返回/节省 Token |
@@ -241,6 +274,7 @@ npx workspace-kb memory prune          # 清理已过期行
 | 常驻进程 | `start` / `stop` / `projects`；注册表在 `~/.workspace-kb/registry.json` |
 | 云端向量 | `embedProvider: "openai"`（可用 `openaiBaseUrl` 接兼容接口） |
 | Continue | 自动片段 + [`examples/continue.mcp.json`](examples/continue.mcp.json) |
+| **三端 MCP** | Cursor + Codex + WorkBuddy 共用 HTTP `/mcp`；`install-clients` |
 
 ## 配置
 
@@ -269,6 +303,7 @@ npx workspace-kb memory prune          # 清理已过期行
     "mcpServerId": "my-project-kb",
     "dashboardPort": 19090,
     "mcpMode": "http",
+    "clients": ["cursor", "codex", "workbuddy", "continue"],
     "agentsMd": true,
     "cursorSkill": true,
     "continueConfig": true

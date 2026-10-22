@@ -1,6 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  detectConfiguredClients,
+  resolveClients,
+  writeAgentsSkill,
+  writeCodebuddyPlugin,
+  writeCodexMcp,
+  writeWorkbuddyMcp,
+  renderSharedSkillMd,
+} from "./clients.js";
 import { registerProject } from "./daemon.js";
 import { resolveDashboardPort } from "./port.js";
 
@@ -9,7 +18,14 @@ const MARKER_START = "<!-- WORKSPACE-KB:START -->";
 const MARKER_END = "<!-- WORKSPACE-KB:END -->";
 
 /**
- * @param {{ startDir?: string, quiet?: boolean, preferInitCwd?: boolean, port?: unknown }} [options]
+ * @param {{
+ *   startDir?: string,
+ *   quiet?: boolean,
+ *   preferInitCwd?: boolean,
+ *   port?: unknown,
+ *   clients?: unknown,
+ *   global?: boolean,
+ * }} [options]
  */
 export function runSetup(options = {}) {
   const resolved = resolveWorkspaceForSetup(options.startDir, {
@@ -37,14 +53,28 @@ export function runSetup(options = {}) {
   const dashboardPort = portResolved.port;
   setupCfg.dashboardPort = dashboardPort;
 
+  const clients = resolveClients(
+    options.clients !== undefined ? options.clients : setupCfg.clients,
+  );
+  setupCfg.clients = clients;
+
   const prevPort = Number(fileCfg.setup?.dashboardPort);
   const shouldPersist =
     options.port !== undefined ||
+    options.clients !== undefined ||
     !Number.isInteger(prevPort) ||
-    prevPort !== dashboardPort;
+    prevPort !== dashboardPort ||
+    JSON.stringify(fileCfg.setup?.clients || null) !== JSON.stringify(clients);
   if (shouldPersist) {
     try {
-      const next = { ...fileCfg, setup: { ...(fileCfg.setup || {}), dashboardPort } };
+      const next = {
+        ...fileCfg,
+        setup: {
+          ...(fileCfg.setup || {}),
+          dashboardPort,
+          clients,
+        },
+      };
       fs.writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
     } catch {
       // non-fatal
@@ -54,23 +84,64 @@ export function runSetup(options = {}) {
   const serverId =
     String(setupCfg.mcpServerId || "").trim() || serverIdFromRoot(workspaceRoot);
   const mcpScript = path.join(PKG_ROOT, "src", "mcp.js");
+  const mcpUrl = `http://127.0.0.1:${dashboardPort}/mcp`;
+  const want = new Set(clients);
 
-  const mcpResult = writeCursorMcp(
-    workspaceRoot,
-    configPath,
-    mcpScript,
-    serverId,
-    setupCfg,
-  );
-  const ruleResult = writeCursorRule(workspaceRoot, serverId, setupCfg);
-  const skillResult = writeCursorSkill(workspaceRoot, serverId, setupCfg);
-  const continueResult = writeContinueConfig(
-    workspaceRoot,
-    configPath,
-    serverId,
-    dashboardPort,
-    setupCfg,
-  );
+  /** @type {Record<string, unknown>} */
+  const written = {};
+
+  if (want.has("cursor")) {
+    const mcpResult = writeCursorMcp(
+      workspaceRoot,
+      configPath,
+      mcpScript,
+      serverId,
+      setupCfg,
+    );
+    written.cursorMcp = mcpResult;
+    written.cursorRule = writeCursorRule(workspaceRoot, serverId, setupCfg);
+    written.cursorSkill = writeCursorSkill(workspaceRoot, serverId, setupCfg);
+  }
+
+  if (want.has("continue")) {
+    written.continueConfig = writeContinueConfig(
+      workspaceRoot,
+      configPath,
+      serverId,
+      dashboardPort,
+      setupCfg,
+    );
+  }
+
+  if (want.has("codex")) {
+    written.codex = writeCodexMcp({
+      workspaceRoot,
+      serverId,
+      mcpUrl,
+      global: options.global === true,
+      tryCli: options.global === true,
+    });
+    written.agentsSkill = writeAgentsSkill(workspaceRoot, serverId);
+  }
+
+  if (want.has("workbuddy")) {
+    written.workbuddy = writeWorkbuddyMcp({
+      workspaceRoot,
+      serverId,
+      mcpUrl,
+      configPath,
+      mcpMode: setupCfg.mcpMode,
+    });
+    written.codebuddyPlugin = writeCodebuddyPlugin({
+      workspaceRoot,
+      serverId,
+      mcpUrl,
+      dashboardPort,
+    });
+    if (!written.agentsSkill) {
+      written.agentsSkill = writeAgentsSkill(workspaceRoot, serverId);
+    }
+  }
 
   let agentsResult = { agentsMd: "skipped" };
   if (setupCfg.agentsMd !== false) {
@@ -83,19 +154,31 @@ export function runSetup(options = {}) {
     // optional
   }
 
+  const detected = detectConfiguredClients(workspaceRoot, serverId, dashboardPort);
+
   const result = {
     ok: true,
     workspaceRoot,
     configPath,
     serverId,
-    mcpPath: mcpResult.mcpPath,
-    mcpMode: mcpResult.mcpMode,
-    cursorRule: ruleResult.cursorRule,
-    cursorSkill: skillResult.cursorSkill,
-    continueConfig: continueResult.continueConfig,
+    mcpUrl,
+    clients,
+    mcpPath: written.cursorMcp?.mcpPath,
+    mcpMode: written.cursorMcp?.mcpMode || String(setupCfg.mcpMode || "http"),
+    cursorRule: written.cursorRule?.cursorRule,
+    cursorSkill: written.cursorSkill?.cursorSkill,
+    continueConfig: written.continueConfig?.continueConfig,
+    codex: written.codex?.codex,
+    codexPath: written.codex?.path,
+    workbuddy: written.workbuddy?.workbuddy,
+    workbuddyPath: written.workbuddy?.path,
+    codebuddyPlugin: written.codebuddyPlugin?.codebuddyPlugin,
+    codebuddyPluginPath: written.codebuddyPlugin?.path,
+    agentsSkill: written.agentsSkill?.agentsSkill,
     agentsMd: agentsResult.agentsMd,
     dashboardPort,
     portSource: portResolved.source,
+    configuredClients: detected.clients,
   };
 
   if (!options.quiet) {
@@ -105,7 +188,24 @@ export function runSetup(options = {}) {
 }
 
 /**
- * Align config + Cursor/Continue MCP URLs with the port actually in use
+ * Alias for multi-client install (same as setup with explicit clients).
+ * @param {{
+ *   startDir?: string,
+ *   quiet?: boolean,
+ *   port?: unknown,
+ *   clients?: unknown,
+ *   global?: boolean,
+ * }} [options]
+ */
+export function installClients(options = {}) {
+  return runSetup({
+    ...options,
+    clients: options.clients !== undefined ? options.clients : undefined,
+  });
+}
+
+/**
+ * Align config + client MCP URLs with the port actually in use
  * (called from `start` / `serve` after a concrete port is chosen).
  * @param {unknown} port
  * @param {{ quiet?: boolean, startDir?: string }} [options]
@@ -211,7 +311,12 @@ function writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId, setupCfg
   }
 
   fs.writeFileSync(mcpPath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
-  return { mcpPath, serverId, mcpMode, mcpUrl: `http://127.0.0.1:${dashboardPort}/mcp` };
+  return {
+    mcpPath,
+    serverId,
+    mcpMode,
+    mcpUrl: `http://127.0.0.1:${dashboardPort}/mcp`,
+  };
 }
 
 function writeCursorRule(workspaceRoot, serverId, setupCfg) {
@@ -225,16 +330,17 @@ function writeCursorRule(workspaceRoot, serverId, setupCfg) {
     "---",
     "description: >-",
     "  Always call workspace-kb MCP (kb_search) before broad markdown reads or",
-    "  multi-repo scans; use kb_memory_* for shared ops facts across Cursor/Codex.",
+    "  multi-repo scans; use kb_memory_* for shared ops facts across",
+    "  Cursor/Codex/WorkBuddy.",
     "alwaysApply: true",
     "---",
     "",
     `# Workspace knowledge base (\`${serverId}\`)`,
     "",
     "- **Must** call MCP `kb_search` first for architecture, routing, ops runbooks, symptoms, or \"where is X\" — then `kb_read` one heading, then `rg` in the cited repo only.",
-    "- For **shared ops facts** (env ports, prior triage): `kb_memory_search` first; after a durable conclusion `kb_memory_put` (redact secrets). Do **not** store personal preferences — use Cursor Memories / Codex Memories.",
-    "- Team hard rules stay in `AGENTS.md` / `.cursor/rules` — memory does not replace them.",
-    "- Prefer HTTP MCP via `npx workspace-kb start` / dashboard `/mcp`. Restart MCP from the dashboard if `workspaceRoot` looks wrong.",
+    "- For **shared ops facts** (env ports, prior triage): `kb_memory_search` first; after a durable conclusion `kb_memory_put` (redact secrets). Do **not** store personal preferences — use Cursor / Codex / WorkBuddy Memories.",
+    "- Team hard rules stay in `AGENTS.md` / rules — memory does not replace them.",
+    "- Prefer HTTP MCP via `npx workspace-kb up` / dashboard `/mcp`. Same URL works for Cursor, Codex, and WorkBuddy. Restart MCP from the dashboard if `workspaceRoot` looks wrong.",
     "",
   ].join("\n");
   fs.writeFileSync(rulePath, body, "utf8");
@@ -248,51 +354,7 @@ function writeCursorSkill(workspaceRoot, serverId, setupCfg) {
   const skillDir = path.join(workspaceRoot, ".cursor", "skills", "query-workspace-kb");
   fs.mkdirSync(skillDir, { recursive: true });
   const skillPath = path.join(skillDir, "SKILL.md");
-  const body = [
-    "---",
-    "name: query-workspace-kb",
-    "description: >-",
-    "  Search workspace-kb docs (kb_search) and shared project ops memory",
-    "  (kb_memory_*). Use for architecture, symptoms, env facts, and triage",
-    "  conclusions across Cursor/Codex/CLI. Not for personal preferences.",
-    "---",
-    "",
-    `# Query workspace knowledge (\`${serverId}\`)`,
-    "",
-    "## Where to look",
-    "",
-    "| Need | Tool |",
-    "|------|------|",
-    "| Docs / skills / wiki | `kb_search` → `kb_read` |",
-    "| Shared ops facts / prior triage | `kb_memory_search` / `kb_memory_put` |",
-    "| Personal preference | Cursor Memories or Codex Memories (not kb_memory) |",
-    "| Team hard rules | `AGENTS.md` / rules (not memory) |",
-    "",
-    "## Docs flow",
-    "",
-    "1. `kb_search` (limit 6–8). Note `relatedMemories` in the response.",
-    "2. `kb_read` one cited heading; then `rg` only in that repo.",
-    "3. CLI fallback: `npx workspace-kb search -- \"<query>\"`.",
-    "",
-    "## Memory flow (cross Cursor + Codex + CLI)",
-    "",
-    "1. Before repeating an investigation: `kb_memory_search`.",
-    "2. After a durable, redacted conclusion: `kb_memory_put` with tags + optional `ttlDays` (default 90).",
-    "3. Audit/delete on the dashboard **项目记忆** panel.",
-    "",
-    "Empty index: `npx workspace-kb ingest`. Dashboard: `npx workspace-kb start`.",
-    "",
-    "## Examples",
-    "",
-    "```text",
-    'kb_search query="充值未到账"',
-    'kb_memory_search query="fish37 hallapi"',
-    'kb_memory_put text="测服 hallapi HTTP 在 fish37:8080" tags=["ops","test-env"] ttlDays=90',
-    "npx workspace-kb memory list",
-    "```",
-    "",
-  ].join("\n");
-  fs.writeFileSync(skillPath, body, "utf8");
+  fs.writeFileSync(skillPath, renderSharedSkillMd(serverId), "utf8");
   return { cursorSkill: "written", skillPath };
 }
 
@@ -321,12 +383,11 @@ function writeContinueConfig(workspaceRoot, configPath, serverId, dashboardPort,
           },
         };
   const doc = {
-    // Continue.dev MCP-style snippet (merge into your config as needed)
     name: "workspace-kb",
     mcpServers,
     docs: [
       "Install Continue, then merge mcpServers into ~/.continue/config.json",
-      "Keep `npx workspace-kb start` running when using HTTP MCP",
+      "Keep `npx workspace-kb up` running when using HTTP MCP",
     ],
   };
   const outPath = path.join(contDir, "workspace-kb.mcp.json");
@@ -342,10 +403,11 @@ function renderAgentsBlock(serverId, dashboardPort) {
 
 - **何时用**：架构、路由、运维手册、「X 在哪」—— 全仓盲扫之前先 \`kb_search\`。
 - **怎么用**：MCP \`kb_search\` → \`kb_read\`（单节），再到对应目录 \`rg\`；源码仍以代码为准。
-- **CLI**：\`npx workspace-kb search "<query>"\` · 看板：\`npx workspace-kb serve --port ${dashboardPort}\`（MCP HTTP：\`http://127.0.0.1:${dashboardPort}/mcp\`）
+- **三端**：Cursor · Codex · WorkBuddy 共用同一 HTTP MCP：\`http://127.0.0.1:${dashboardPort}/mcp\`（先 \`npx workspace-kb up\`）。
+- **CLI**：\`npx workspace-kb search "<query>"\` · 接线：\`npx workspace-kb install-clients\`
 - **配置**：\`workspace-kb.config.json\` · **数据**：\`.workspace-kb/\`（gitignore）
 
-本仓 MCP：\`.cursor/mcp.json\` → \`${serverId}\`（默认 HTTP，看板可点「重启 MCP」）。需先 \`npx workspace-kb serve\` 保持运行。
+本仓 MCP id：\`${serverId}\`。需保持看板运行；看板可点「重启 MCP」。
 ${MARKER_END}`;
 }
 

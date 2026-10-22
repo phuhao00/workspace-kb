@@ -68,21 +68,41 @@ npx workspace-kb up --port 8700
 npm install github:phuhao00/workspace-kb#master
 ```
 
-### Auto-setup (install · update · ingest · `setup`)
+### Auto-setup (install · update · ingest · `setup` / `install-clients`)
 
-If `workspace-kb.config.json` is found (cwd or parent, or `INIT_CWD` on postinstall), the package writes:
+If `workspace-kb.config.json` is found (cwd or parent, or `INIT_CWD` on postinstall), the package writes for `setup.clients` (default: Cursor · Codex · WorkBuddy · Continue):
 
 | Path | Purpose |
 |------|---------|
-| `.cursor/mcp.json` | MCP server (default **HTTP** → `http://127.0.0.1:<port>/mcp`) |
+| `.cursor/mcp.json` | Cursor MCP (default **HTTP** → `http://127.0.0.1:<port>/mcp`) |
 | `.cursor/rules/workspace-kb-routing.mdc` | `alwaysApply` — call `kb_search` first |
-| `.cursor/skills/query-workspace-kb/SKILL.md` | Cursor skill for architecture/ops questions |
+| `.cursor/skills/query-workspace-kb/SKILL.md` | Cursor skill |
+| `.codex/config.toml` | Codex `[mcp_servers.<id>]` HTTP URL (project-scoped) |
+| `.mcp.json` | WorkBuddy / CodeBuddy project MCP |
+| `plugins/workspace-kb/` | Installable CodeBuddy plugin (wiring + skill only) |
+| `.agents/skills/query-workspace-kb/SKILL.md` | Multi-host skill |
 | `.continue/workspace-kb.mcp.json` | Continue.dev merge snippet |
 | `AGENTS.md` `<!-- WORKSPACE-KB:… -->` | Agent routing (skip if `agentsMd: false` or custom `kb_search` docs) |
 
-Disable: `WORKSPACE_KB_SKIP_SETUP=1` or `"setup": { "enabled": false }`.
+Disable: `WORKSPACE_KB_SKIP_SETUP=1` or `"setup": { "enabled": false }`.  
+Subset: `"setup": { "clients": ["cursor","codex"] }` or `install-clients --clients cursor,codex`.
 
-After upgrade: **restart `start`/`serve`**, then click **重启 MCP** on the dashboard (or reload Cursor MCP).
+After upgrade: **restart `up`/`start`/`serve`**, then **重启 MCP** on the dashboard (or reload each client’s MCP).
+
+## One engine, three clients (Cursor · Codex · WorkBuddy)
+
+```bash
+npx workspace-kb up --port 8787
+npx workspace-kb install-clients
+```
+
+All three point at the same `http://127.0.0.1:<port>/mcp` so search + `kb_memory_*` stay shared. Templates: [examples/codex.config.toml](examples/codex.config.toml), [examples/workbuddy.mcp.json](examples/workbuddy.mcp.json), [examples/codebuddy-plugin/](examples/codebuddy-plugin/).
+
+| Issue | Fix |
+|-------|-----|
+| No `kb_search` tools | Dashboard must be running; port must match; reload MCP |
+| Codex ignores project config | Trust the project, or `install-clients --global` |
+| Different memory per client | Do not run separate stdio servers — use one HTTP URL |
 
 ## CLI reference
 
@@ -93,13 +113,14 @@ workspace-kb <command>
   down [--port <n>]                        # ★ stop
   watch                                    # auto-ingest only (foreground)
   init [--force] [--name app] [--port <n>]
-  setup [--port <n>]
+  setup [--port <n>] [--clients cursor,codex,workbuddy] [--global]
+  install-clients [--port <n>] [--clients …] [--global]
   ingest [--full]
   start | stop | serve [--port <1-65535|auto>] [--no-watch]
   search | read | status | health | stats | projects | memory | feedback
 ```
 
-Day-to-day: `up` / `down`. While the dashboard runs, markdown under configured paths is watched and incrementally ingested.
+Day-to-day: `up` → `install-clients` → reload MCP in each client. While the dashboard runs, markdown under configured paths is watched and incrementally ingested.
 
 ## Dashboard
 
@@ -114,7 +135,7 @@ Open **http://127.0.0.1:8787/**
 | Panel | What you can do |
 |-------|-----------------|
 | **控制** | Restart MCP · re-setup · incremental/full ingest · restart server |
-| **健康检查** | config · workspaceRoot · index · embed · MCP · hit rate |
+| **健康检查** | config · workspaceRoot · index · embed · MCP · **wired clients** · hit rate |
 | **项目记忆** | Put / delete by key·id / prune expired; audit list |
 | **多项目** | Local registered instances + ports |
 | **Metrics** | calls · hit rate · est. returned/saved tokens |

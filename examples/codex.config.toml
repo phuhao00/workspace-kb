@@ -1,0 +1,8 @@
+# Project-scoped Codex MCP (place as .codex/config.toml).
+# Prefer: npx workspace-kb install-clients
+#
+# IMPORTANT: top-level key is mcp_servers (not mcpServers).
+
+[mcp_servers.workspace-kb]
+url = "http://127.0.0.1:8787/mcp"
+enabled = true

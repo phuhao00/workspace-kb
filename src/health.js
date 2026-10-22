@@ -62,6 +62,38 @@ export async function getHealth(ctx = {}) {
         : "dashboard HTTP MCP not attached",
   });
 
+  let clientsSummary = null;
+  try {
+    const { detectConfiguredClients } = await import("./clients.js");
+    const setupCfg = cfg.setup || {};
+    const port = Number(setupCfg.dashboardPort) || Number(process.env.WORKSPACE_KB_PORT) || 8787;
+    const serverId =
+      String(setupCfg.mcpServerId || "").trim() ||
+      `${path
+        .basename(cfg.workspaceRoot || "workspace")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "workspace"}-kb`;
+    clientsSummary = detectConfiguredClients(cfg.workspaceRoot, serverId, port);
+    const okCount = clientsSummary.clients.filter((c) => c.ok).length;
+    const existCount = clientsSummary.clients.filter((c) => c.exists).length;
+    checks.push({
+      id: "clients",
+      ok: okCount > 0,
+      detail:
+        okCount > 0
+          ? `${okCount} wired · ${existCount} files · ${clientsSummary.mcpUrl}`
+          : `none wired — run workspace-kb install-clients (${clientsSummary.mcpUrl})`,
+      clients: clientsSummary.clients,
+    });
+  } catch (err) {
+    checks.push({
+      id: "clients",
+      ok: true,
+      detail: `probe skipped: ${err instanceof Error ? err.message : err}`,
+    });
+  }
+
   const emptySearches = usage.emptySearchCount || 0;
   const searchCount = usage.searchCount || 0;
   const hitRate =
@@ -84,7 +116,7 @@ export async function getHealth(ctx = {}) {
     .every((c) => c.ok);
   // mcpHttp only required when dashboard attached it
   const requiredOk = checks
-    .filter((c) => !["mcpHttp", "hitRate"].includes(c.id))
+    .filter((c) => !["mcpHttp", "hitRate", "clients"].includes(c.id))
     .every((c) => c.ok);
   return {
     ok: requiredOk,
@@ -96,6 +128,7 @@ export async function getHealth(ctx = {}) {
     modelId: cfg.modelId,
     embedProvider: cfg.embedProvider,
     mcp,
+    clients: clientsSummary,
     usage: {
       searchCount,
       readCount: usage.readCount,

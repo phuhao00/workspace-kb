@@ -91,55 +91,60 @@ export function runSetup(options = {}) {
   const written = {};
 
   if (want.has("cursor")) {
-    const mcpResult = writeCursorMcp(
-      workspaceRoot,
-      configPath,
-      mcpScript,
-      serverId,
-      setupCfg,
+    written.cursorMcp = safeWrite("cursorMcp", () =>
+      writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId, setupCfg),
     );
-    written.cursorMcp = mcpResult;
-    written.cursorRule = writeCursorRule(workspaceRoot, serverId, setupCfg);
-    written.cursorSkill = writeCursorSkill(workspaceRoot, serverId, setupCfg);
+    written.cursorRule = safeWrite("cursorRule", () =>
+      writeCursorRule(workspaceRoot, serverId, setupCfg),
+    );
+    written.cursorSkill = safeWrite("cursorSkill", () =>
+      writeCursorSkill(workspaceRoot, serverId, setupCfg),
+    );
   }
 
   if (want.has("continue")) {
-    written.continueConfig = writeContinueConfig(
-      workspaceRoot,
-      configPath,
-      serverId,
-      dashboardPort,
-      setupCfg,
+    written.continueConfig = safeWrite("continueConfig", () =>
+      writeContinueConfig(workspaceRoot, configPath, serverId, dashboardPort, setupCfg),
     );
   }
 
   if (want.has("codex")) {
-    written.codex = writeCodexMcp({
-      workspaceRoot,
-      serverId,
-      mcpUrl,
-      global: options.global === true,
-      tryCli: options.global === true,
-    });
-    written.agentsSkill = writeAgentsSkill(workspaceRoot, serverId);
+    written.codex = safeWrite("codex", () =>
+      writeCodexMcp({
+        workspaceRoot,
+        serverId,
+        mcpUrl,
+        global: options.global === true,
+        tryCli: options.global === true,
+      }),
+    );
+    written.agentsSkill = safeWrite("agentsSkill", () =>
+      writeAgentsSkill(workspaceRoot, serverId),
+    );
   }
 
   if (want.has("workbuddy")) {
-    written.workbuddy = writeWorkbuddyMcp({
-      workspaceRoot,
-      serverId,
-      mcpUrl,
-      configPath,
-      mcpMode: setupCfg.mcpMode,
-    });
-    written.codebuddyPlugin = writeCodebuddyPlugin({
-      workspaceRoot,
-      serverId,
-      mcpUrl,
-      dashboardPort,
-    });
-    if (!written.agentsSkill) {
-      written.agentsSkill = writeAgentsSkill(workspaceRoot, serverId);
+    written.workbuddy = safeWrite("workbuddy", () =>
+      writeWorkbuddyMcp({
+        workspaceRoot,
+        serverId,
+        mcpUrl,
+        configPath,
+        mcpMode: setupCfg.mcpMode,
+      }),
+    );
+    written.codebuddyPlugin = safeWrite("codebuddyPlugin", () =>
+      writeCodebuddyPlugin({
+        workspaceRoot,
+        serverId,
+        mcpUrl,
+        dashboardPort,
+      }),
+    );
+    if (!written.agentsSkill || written.agentsSkill.error) {
+      written.agentsSkill = safeWrite("agentsSkill", () =>
+        writeAgentsSkill(workspaceRoot, serverId),
+      );
     }
   }
 
@@ -156,8 +161,12 @@ export function runSetup(options = {}) {
 
   const detected = detectConfiguredClients(workspaceRoot, serverId, dashboardPort);
 
+  const writeErrors = Object.entries(written)
+    .filter(([, v]) => v && v.error)
+    .map(([k, v]) => ({ step: k, error: v.error }));
+
   const result = {
-    ok: true,
+    ok: writeErrors.length === 0,
     workspaceRoot,
     configPath,
     serverId,
@@ -179,6 +188,7 @@ export function runSetup(options = {}) {
     dashboardPort,
     portSource: portResolved.source,
     configuredClients: detected.clients,
+    writeErrors: writeErrors.length ? writeErrors : undefined,
   };
 
   if (!options.quiet) {
@@ -254,6 +264,21 @@ export function resolveWorkspaceForSetup(startDir, options = {}) {
     dir = parent;
   }
   return null;
+}
+
+/**
+ * @param {string} label
+ * @param {() => object} fn
+ */
+function safeWrite(label, fn) {
+  try {
+    return fn();
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : String(err),
+      step: label,
+    };
+  }
 }
 
 function serverIdFromRoot(workspaceRoot) {

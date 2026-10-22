@@ -339,8 +339,32 @@ export function writeAgentsSkill(workspaceRoot, serverId) {
   const skillDir = path.join(workspaceRoot, ".agents", "skills", "query-workspace-kb");
   fs.mkdirSync(skillDir, { recursive: true });
   const skillPath = path.join(skillDir, "SKILL.md");
-  fs.writeFileSync(skillPath, renderSharedSkillMd(serverId), "utf8");
+  const body = renderSharedSkillMd(serverId);
+  writeFileResilient(skillPath, body);
   return { agentsSkill: "written", path: skillPath };
+}
+
+/**
+ * Windows sometimes returns UNKNOWN/EPERM on hot skill files; retry briefly.
+ * @param {string} filePath
+ * @param {string} body
+ */
+function writeFileResilient(filePath, body) {
+  let lastErr;
+  for (let i = 0; i < 5; i++) {
+    try {
+      fs.writeFileSync(filePath, body, "utf8");
+      return;
+    } catch (err) {
+      lastErr = err;
+      const code = err && /** @type {NodeJS.ErrnoException} */ (err).code;
+      if (code && !["UNKNOWN", "EPERM", "EBUSY", "EACCES"].includes(code)) {
+        throw err;
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 40 * (i + 1));
+    }
+  }
+  throw lastErr;
 }
 
 /**

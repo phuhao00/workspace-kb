@@ -1,7 +1,8 @@
 import { Composition } from "remotion";
 import { ThreeClients } from "./ThreeClients";
 
-export const MyComposition = () => {
+/** ~7s @ 30fps — matches README explainer GIF. */
+export const RemotionCompositions = () => {
   return (
     <Composition
       id="ThreeClients"

@@ -8,11 +8,13 @@ Index curated docs / skills / wiki — **not** your full source tree. Agents use
 
 | | |
 |---|---|
-| Version | **1.5** |
+| Version | **1.7.2** |
 | License | MIT |
 | Repo | https://github.com/phuhao00/workspace-kb |
 
 ![One engine, three clients: up → install-clients → reload MCP](docs/media/three-clients.gif)
+
+<sub>Regenerate GIF: [`promo/`](./promo/) → `npm run render:gif`</sub>
 
 ## Why
 
@@ -90,24 +92,34 @@ If `workspace-kb.config.json` is found (cwd or parent, or `INIT_CWD` on postinst
 Disable: `WORKSPACE_KB_SKIP_SETUP=1` or `"setup": { "enabled": false }`.  
 Subset: `"setup": { "clients": ["cursor","codex"] }` or `install-clients --clients cursor,codex`.
 
-After upgrade: **restart `up`/`start`/`serve`**, then **重启 MCP** on the dashboard (or reload each client’s MCP).
+After upgrade: **restart `up`/`start`/`serve`**, then **Restart MCP** on the dashboard (or reload each client’s MCP).
 
 ## One engine, three clients (Cursor · Codex · WorkBuddy)
 
-Same flow as the animation above: start the dashboard once, wire clients, reload MCP — one HTTP URL for all three.
+Same flow as the animation above: start the dashboard once → wire clients → reload MCP. **One engine, one index, one memory store**, shared HTTP MCP URL:
 
 ```bash
-npx workspace-kb up --port 8787
-npx workspace-kb install-clients
+npx workspace-kb up --port 8787          # dashboard + /mcp + auto-ingest
+npx workspace-kb install-clients         # idempotent client wiring (same port)
 ```
 
-All three point at the same `http://127.0.0.1:<port>/mcp` so search + `kb_memory_*` stay shared. Templates: [examples/codex.config.toml](examples/codex.config.toml), [examples/workbuddy.mcp.json](examples/workbuddy.mcp.json), [examples/codebuddy-plugin/](examples/codebuddy-plugin/).
+| Client | How |
+|--------|-----|
+| **Cursor** | Project `.cursor/mcp.json` is written; reload MCP |
+| **Codex** | Reads project `.codex/config.toml` (trust the project); or `install-clients --global` → `~/.codex/config.toml` / `codex mcp add` |
+| **WorkBuddy** | Enable `plugins/workspace-kb`, paste URL in Settings→MCP, or use root `.mcp.json` |
+
+Templates: [examples/codex.config.toml](examples/codex.config.toml) · [examples/workbuddy.mcp.json](examples/workbuddy.mcp.json) · [examples/codebuddy-plugin/](examples/codebuddy-plugin/).
+
+### Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| No `kb_search` tools | Dashboard must be running; port must match; reload MCP |
+| No `kb_search` tools | `up`/`start` must be running; URL port matches `setup.dashboardPort`; reload MCP |
 | Codex ignores project config | Trust the project, or `install-clients --global` |
-| Different memory per client | Do not run separate stdio servers — use one HTTP URL |
+| WorkBuddy connected but wrong `workspaceRoot` | Use HTTP MCP (not stdio); dashboard health → `workspaceRoot` |
+| Memory written in one client missing in another | All three must share the **same** `/mcp` URL — do not run separate stdio servers |
+| `EADDRINUSE` | Instance already on that port; use it, or `down` / change port then `install-clients` again |
 
 ## CLI reference
 
@@ -334,7 +346,7 @@ npx workspace-kb ingest --full
 
 | `setup.mcpMode` | `.cursor/mcp.json` | Notes |
 |-----------------|--------------------|-------|
-| `http` (default) | `{ "url": "http://127.0.0.1:<dashboardPort>/mcp" }` | Needs `start`/`serve`; dashboard can **重启 MCP** |
+| `http` (default) | `{ "url": "http://127.0.0.1:<dashboardPort>/mcp" }` | Needs `start`/`serve`; dashboard can **Restart MCP** |
 | `stdio` | `command` + `env.WORKSPACE_KB_CONFIG` | No dashboard required; pin config path (Cursor often ignores `cwd`) |
 
 ## Multiple projects on one machine

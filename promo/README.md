@@ -1,6 +1,11 @@
 # workspace-kb promo (Remotion)
 
-Short README explainer: one MCP engine shared by Cursor · Codex · WorkBuddy (`up` → `install-clients` → reload).
+Short README explainer: one MCP engine shared by Cursor · Codex · WorkBuddy (`up` → `install-clients` → reload MCP).
+
+Alt text used in READMEs:
+
+- EN: `One engine, three clients: up → install-clients → reload MCP`
+- ZH: `一引擎三端：up → install-clients → 重载 MCP`
 
 ## Preview
 
@@ -13,7 +18,7 @@ npm run dev
 
 ## Re-export GIF for README
 
-Writes `docs/media/three-clients.gif` (~7s, ~500KB):
+Writes `docs/media/three-clients.gif` (~7s @ 30fps, scale 0.75, every 2nd frame → ~500–700KB):
 
 ```bash
 cd promo
@@ -28,7 +33,9 @@ npx remotion render ThreeClients ../docs/media/three-clients.gif \
   --codec=gif --every-nth-frame=2 --scale=0.75 --port=3124
 ```
 
-Use a free `--port` if 3000 is already taken by another app.
+Use a free `--port` if 3000/3124 is already taken.
+
+Root `npm run smoke` asserts the GIF path exists and `promo` still points at it.
 
 ## Edit
 

@@ -120,6 +120,31 @@ section("init + setup idempotency");
   fs.rmSync(root, { recursive: true, force: true });
 }
 
+section("docs GIF + promo");
+{
+  const repoRoot = path.join(__dirname, "..");
+  const gif = path.join(repoRoot, "docs", "media", "three-clients.gif");
+  assert(fs.existsSync(gif), "docs/media/three-clients.gif exists");
+  const gifSize = fs.statSync(gif).size;
+  assert(gifSize > 50_000 && gifSize < 2_000_000, `gif size sane (${gifSize})`);
+
+  const promoPkgPath = path.join(repoRoot, "promo", "package.json");
+  assert(fs.existsSync(promoPkgPath), "promo/package.json");
+  const promoPkg = JSON.parse(fs.readFileSync(promoPkgPath, "utf8"));
+  const renderGif = promoPkg.scripts?.["render:gif"] || "";
+  assert(
+    renderGif.includes("three-clients.gif") && renderGif.includes("ThreeClients"),
+    "promo render:gif targets ThreeClients → docs/media/three-clients.gif",
+  );
+
+  const threeClients = path.join(repoRoot, "promo", "src", "ThreeClients.tsx");
+  assert(fs.existsSync(threeClients), "promo/src/ThreeClients.tsx");
+  const src = fs.readFileSync(threeClients, "utf8");
+  assert(src.includes("install-clients"), "promo mentions install-clients");
+  assert(src.includes("WorkBuddy"), "promo mentions WorkBuddy");
+  assert(src.includes("Cursor") && src.includes("Codex"), "promo mentions Cursor+Codex");
+}
+
 section("done");
 if (failures.length) {
   process.stderr.write(`FAIL ${failures.length}\n${failures.map((f) => ` - ${f}`).join("\n")}\n`);

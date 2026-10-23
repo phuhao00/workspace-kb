@@ -34,17 +34,31 @@ const fadeSlide = (
     extrapolateRight: "clamp",
     easing: easeOut,
   }),
-  translateY: interpolate(frame, [start, start + dur], [18, 0], {
+  translateY: interpolate(frame, [start, start + dur], [16, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: easeOut,
   }),
 });
 
+/** Soft exit so GIF loops without a hard cut. */
+const SceneFade: React.FC<{
+  children: React.ReactNode;
+  outStart?: number;
+}> = ({ children, outStart = 9999 }) => {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [outStart, outStart + 10], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return <AbsoluteFill style={{ opacity }}>{children}</AbsoluteFill>;
+};
+
 const TitleScene: React.FC = () => {
   const frame = useCurrentFrame();
-  const title = fadeSlide(frame, 0, 18);
-  const sub = fadeSlide(frame, 10, 18);
+  const title = fadeSlide(frame, 0, 16);
+  const sub = fadeSlide(frame, 8, 16);
+  const pipe = fadeSlide(frame, 20, 14);
 
   return (
     <AbsoluteFill
@@ -59,7 +73,7 @@ const TitleScene: React.FC = () => {
         style={{
           opacity: title.opacity,
           translate: `0px ${title.translateY}px`,
-          fontSize: 64,
+          fontSize: 68,
           fontWeight: 700,
           color: COLORS.text,
           letterSpacing: "-0.02em",
@@ -69,14 +83,27 @@ const TitleScene: React.FC = () => {
       </div>
       <div
         style={{
-          marginTop: 16,
+          marginTop: 14,
           opacity: sub.opacity,
           translate: `0px ${sub.translateY}px`,
-          fontSize: 28,
+          fontSize: 30,
           color: COLORS.muted,
         }}
       >
         One engine · three clients
+      </div>
+      <div
+        style={{
+          marginTop: 28,
+          opacity: pipe.opacity,
+          translate: `0px ${pipe.translateY}px`,
+          fontSize: 20,
+          letterSpacing: "0.06em",
+          color: COLORS.accent,
+          fontFamily: 'ui-monospace, "Cascadia Code", Consolas, monospace',
+        }}
+      >
+        up → install-clients → reload MCP
       </div>
     </AbsoluteFill>
   );
@@ -85,11 +112,12 @@ const TitleScene: React.FC = () => {
 const CmdLine: React.FC<{
   text: string;
   start: number;
+  step: string;
   accent?: boolean;
-}> = ({ text, start, accent }) => {
+}> = ({ text, start, step, accent }) => {
   const frame = useCurrentFrame();
   const anim = fadeSlide(frame, start, 12);
-  const reveal = interpolate(frame, [start, start + 20], [0, text.length], {
+  const reveal = interpolate(frame, [start, start + 18], [0, text.length], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -102,30 +130,59 @@ const CmdLine: React.FC<{
         translate: `0px ${anim.translateY}px`,
         display: "flex",
         alignItems: "center",
-        gap: 12,
-        fontFamily: 'ui-monospace, "Cascadia Code", Consolas, monospace',
-        fontSize: 26,
-        color: accent ? COLORS.accent : COLORS.text,
-        background: COLORS.panel,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 10,
-        padding: "14px 20px",
-        width: 620,
-        boxSizing: "border-box",
+        gap: 14,
+        width: 680,
       }}
     >
-      <span style={{ color: COLORS.accent, flexShrink: 0 }}>$</span>
-      <span>
-        {shown}
-        <span
-          style={{
-            opacity: frame % 20 < 12 ? 1 : 0,
-            color: COLORS.muted,
-          }}
-        >
-          ▌
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: COLORS.accentSoft,
+          border: `1px solid ${COLORS.accent}`,
+          color: COLORS.accent,
+          fontSize: 18,
+          fontWeight: 700,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          fontFamily:
+            'ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif',
+        }}
+      >
+        {step}
+      </div>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          fontFamily: 'ui-monospace, "Cascadia Code", Consolas, monospace',
+          fontSize: 28,
+          color: accent ? COLORS.accent : COLORS.text,
+          background: COLORS.panel,
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: 10,
+          padding: "16px 22px",
+          boxSizing: "border-box",
+        }}
+      >
+        <span style={{ color: COLORS.accent, flexShrink: 0 }}>$</span>
+        <span>
+          {shown}
+          <span
+            style={{
+              opacity: frame % 20 < 12 ? 1 : 0,
+              color: COLORS.muted,
+            }}
+          >
+            ▌
+          </span>
         </span>
-      </span>
+      </div>
     </div>
   );
 };
@@ -139,7 +196,7 @@ const CommandsScene: React.FC = () => {
       style={{
         justifyContent: "center",
         alignItems: "center",
-        gap: 18,
+        gap: 20,
         fontFamily:
           'ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif',
       }}
@@ -150,17 +207,18 @@ const CommandsScene: React.FC = () => {
           translate: `0px ${label.translateY}px`,
           fontSize: 22,
           color: COLORS.muted,
-          marginBottom: 8,
-          letterSpacing: "0.04em",
+          marginBottom: 6,
+          letterSpacing: "0.05em",
           textTransform: "uppercase",
         }}
       >
         Start once · wire once
       </div>
-      <CmdLine text="npx workspace-kb up --port 8787" start={6} />
+      <CmdLine text="npx workspace-kb up --port 8787" start={4} step="1" />
       <CmdLine
         text="npx workspace-kb install-clients"
-        start={28}
+        start={26}
+        step="2"
         accent
       />
     </AbsoluteFill>
@@ -179,8 +237,8 @@ const ClientCard: React.FC<{
   const appear = fadeSlide(frame, appearAt, 14);
   const reloadOpacity = interpolate(
     frame,
-    [reloadAt, reloadAt + 12, reloadAt + 36, reloadAt + 48],
-    [0, 1, 1, 0.85],
+    [reloadAt, reloadAt + 10, reloadAt + 40, reloadAt + 52],
+    [0, 1, 1, 0.9],
     {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
@@ -194,13 +252,13 @@ const ClientCard: React.FC<{
         position: "absolute",
         left: x,
         top: y,
-        width: 200,
+        width: 210,
         opacity: appear.opacity,
         translate: `0px ${appear.translateY}px`,
         background: COLORS.panel,
         border: `1px solid ${COLORS.border}`,
         borderRadius: 12,
-        padding: "16px 18px",
+        padding: "18px 18px",
         boxSizing: "border-box",
       }}
     >
@@ -209,20 +267,20 @@ const ClientCard: React.FC<{
           display: "flex",
           alignItems: "center",
           gap: 10,
-          marginBottom: 10,
+          marginBottom: 12,
         }}
       >
         <div
           style={{
-            width: 10,
-            height: 10,
+            width: 11,
+            height: 11,
             borderRadius: 999,
             background: color,
           }}
         />
         <div
           style={{
-            fontSize: 22,
+            fontSize: 24,
             fontWeight: 600,
             color: COLORS.text,
             fontFamily:
@@ -235,12 +293,12 @@ const ClientCard: React.FC<{
       <div
         style={{
           opacity: reloadOpacity,
-          fontSize: 15,
-          color: COLORS.muted,
+          fontSize: 16,
+          color: COLORS.accent,
           fontFamily: 'ui-monospace, Consolas, monospace',
         }}
       >
-        reload MCP ✓
+        3 · reload MCP ✓
       </div>
     </div>
   );
@@ -250,53 +308,50 @@ const HubScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const hub = fadeSlide(frame, 0, 16);
-  const lineProgress = interpolate(frame, [18, 42], [0, 1], {
+  const lineProgress = interpolate(frame, [16, 40], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: easeOut,
   });
-  const pulse = interpolate(frame, [70, 90, 110], [0.35, 1, 0.55], {
+  const pulse = interpolate(frame, [68, 88, 108], [0.35, 1, 0.55], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const footer = fadeSlide(frame, 100, 14);
 
-  const hubW = 240;
-  const hubH = 100;
+  const hubW = 260;
+  const hubH = 108;
   const hubX = (width - hubW) / 2;
-  const hubY = height / 2 - 20;
+  const hubY = height / 2 - 28;
   const hubCx = hubX + hubW / 2;
   const hubCy = hubY + hubH / 2;
 
+  const cardW = 210;
+  const cardH = 88;
   const clients = [
     {
       name: "Cursor",
       color: COLORS.cursor,
-      x: 48,
-      y: 80,
-      appearAt: 22,
-      reloadAt: 78,
-      tipX: 148,
-      tipY: 170,
+      x: 40,
+      y: 72,
+      appearAt: 20,
+      reloadAt: 72,
     },
     {
       name: "Codex",
       color: COLORS.codex,
-      x: width - 248,
-      y: 80,
-      appearAt: 30,
-      reloadAt: 86,
-      tipX: width - 148,
-      tipY: 170,
+      x: width - 40 - cardW,
+      y: 72,
+      appearAt: 28,
+      reloadAt: 80,
     },
     {
       name: "WorkBuddy",
       color: COLORS.workbuddy,
-      x: (width - 200) / 2,
-      y: height - 140,
-      appearAt: 38,
-      reloadAt: 94,
-      tipX: width / 2,
-      tipY: height - 140,
+      x: (width - cardW) / 2,
+      y: height - 128,
+      appearAt: 36,
+      reloadAt: 88,
     },
   ];
 
@@ -307,19 +362,23 @@ const HubScene: React.FC = () => {
         height={height}
         style={{ position: "absolute", inset: 0 }}
       >
-        {clients.map((c) => (
-          <line
-            key={c.name}
-            x1={hubCx}
-            y1={hubCy}
-            x2={hubCx + (c.tipX - hubCx) * lineProgress}
-            y2={hubCy + (c.tipY - hubCy) * lineProgress}
-            stroke={COLORS.line}
-            strokeWidth={2}
-            strokeLinecap="round"
-            opacity={0.85}
-          />
-        ))}
+        {clients.map((c) => {
+          const tipX = c.x + cardW / 2;
+          const tipY = c.y + cardH / 2;
+          return (
+            <line
+              key={c.name}
+              x1={hubCx}
+              y1={hubCy}
+              x2={hubCx + (tipX - hubCx) * lineProgress}
+              y2={hubCy + (tipY - hubCy) * lineProgress}
+              stroke={COLORS.line}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              opacity={0.9}
+            />
+          );
+        })}
       </svg>
 
       <div
@@ -338,13 +397,13 @@ const HubScene: React.FC = () => {
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          gap: 4,
-          boxShadow: `0 0 ${24 * pulse}px ${COLORS.accentSoft}`,
+          gap: 6,
+          boxShadow: `0 0 ${28 * pulse}px ${COLORS.accentSoft}`,
         }}
       >
         <div
           style={{
-            fontSize: 24,
+            fontSize: 26,
             fontWeight: 700,
             color: COLORS.text,
             fontFamily:
@@ -355,12 +414,12 @@ const HubScene: React.FC = () => {
         </div>
         <div
           style={{
-            fontSize: 15,
+            fontSize: 16,
             color: COLORS.accent,
             fontFamily: 'ui-monospace, Consolas, monospace',
           }}
         >
-          /mcp · shared index
+          /mcp · shared index + memory
         </div>
       </div>
 
@@ -379,21 +438,39 @@ const HubScene: React.FC = () => {
       <div
         style={{
           position: "absolute",
-          top: 28,
+          top: 24,
           left: 0,
           right: 0,
           textAlign: "center",
-          opacity: interpolate(frame, [8, 22], [0, 1], {
+          opacity: interpolate(frame, [6, 20], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           }),
-          fontSize: 20,
+          fontSize: 22,
           color: COLORS.muted,
           fontFamily:
             'ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif',
         }}
       >
-        Same HTTP URL · shared kb_search & memory
+        Same HTTP URL · kb_search & kb_memory_*
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          bottom: 22,
+          left: 0,
+          right: 0,
+          textAlign: "center",
+          opacity: footer.opacity,
+          translate: `0px ${footer.translateY}px`,
+          fontSize: 18,
+          color: COLORS.accent,
+          letterSpacing: "0.04em",
+          fontFamily: 'ui-monospace, Consolas, monospace',
+        }}
+      >
+        one engine · one index · three clients
       </div>
     </AbsoluteFill>
   );
@@ -401,20 +478,24 @@ const HubScene: React.FC = () => {
 
 export const ThreeClients: React.FC = () => {
   const { fps } = useVideoConfig();
+  const titleDur = Math.round(2.0 * fps);
+  const cmdFrom = Math.round(1.75 * fps);
+  const cmdDur = Math.round(2.35 * fps);
+  const hubFrom = Math.round(3.9 * fps);
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.bg }}>
-      <Sequence durationInFrames={Math.round(2.1 * fps)} name="Title">
-        <TitleScene />
+      <Sequence durationInFrames={titleDur} name="Title">
+        <SceneFade outStart={titleDur - 12}>
+          <TitleScene />
+        </SceneFade>
       </Sequence>
-      <Sequence
-        from={Math.round(1.9 * fps)}
-        durationInFrames={Math.round(2.4 * fps)}
-        name="Commands"
-      >
-        <CommandsScene />
+      <Sequence from={cmdFrom} durationInFrames={cmdDur} name="Commands">
+        <SceneFade outStart={cmdDur - 12}>
+          <CommandsScene />
+        </SceneFade>
       </Sequence>
-      <Sequence from={Math.round(4.1 * fps)} name="Hub">
+      <Sequence from={hubFrom} name="Hub">
         <HubScene />
       </Sequence>
     </AbsoluteFill>

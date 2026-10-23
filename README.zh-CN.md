@@ -8,11 +8,13 @@
 
 | | |
 |---|---|
-| 版本 | **1.5** |
+| 版本 | **1.7.2** |
 | 协议 | MIT |
 | 仓库 | https://github.com/phuhao00/workspace-kb |
 
 ![一引擎三端：up → install-clients → 重载 MCP](docs/media/three-clients.gif)
+
+<sub>重导出动图：[`promo/`](./promo/) → `npm run render:gif`</sub>
 
 ## 解决什么问题
 

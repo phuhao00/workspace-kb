@@ -1,6 +1,6 @@
 {
   "name": "workspace-kb",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Local LanceDB markdown KB for agents. Cursor/Codex/WorkBuddy via one HTTP MCP; auto incremental ingest; CLI + dashboard.",
   "type": "module",
   "bin": {
@@ -31,6 +31,7 @@
     "stop": "node src/cli.js stop",
     "init": "node src/cli.js init",
     "health": "node src/cli.js health",
+    "smoke": "node scripts/smoke-clients.mjs",
     "postinstall": "node scripts/postinstall.js"
   },
   "engines": {

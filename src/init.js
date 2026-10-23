@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { DEFAULT_CLIENTS } from "./clients.js";
 import { DEFAULT_DASHBOARD_PORT, resolveDashboardPort } from "./port.js";
 import { ensureDir } from "./config.js";
 import { runSetup } from "./setup.js";
@@ -19,6 +20,8 @@ const DEFAULT_CONFIG = {
     agentsMd: true,
     cursorSkill: true,
     continueConfig: true,
+    /** Cursor · Codex · WorkBuddy · Continue — install-clients / up sync these */
+    clients: [...DEFAULT_CLIENTS],
   },
 };
 
@@ -65,20 +68,25 @@ export function initWorkspace(opts = {}) {
 
 Index curated markdown (docs / skills / wiki), not your full source tree.
 
-## Workflow
+## One-shot (Cursor · Codex · WorkBuddy)
 
-1. \`npx workspace-kb ingest\`
-2. \`npx workspace-kb start\` (background dashboard + HTTP MCP)
-3. Ask Cursor architecture questions — it should call \`kb_search\` first.
+\`\`\`bash
+npm install
+npx workspace-kb up --port 8700 --ingest
+# reload MCP in each client — same URL: http://127.0.0.1:8700/mcp
+\`\`\`
+
+\`init\` already scaffolds \`setup.clients\` and wires project configs. \`up\` syncs the port into Cursor / Codex / WorkBuddy / Continue.
 
 ## Tips
 
-- Keep \`serve\`/\`start\` running for HTTP MCP.
-- Use the dashboard control panel to restart MCP or re-ingest.
+- Keep \`up\`/\`start\`/\`serve\` running for HTTP MCP.
+- Re-wire after a port change: \`npx workspace-kb install-clients --port <n>\`
+- Dashboard health → **clients** shows which files match the MCP URL.
 `,
       "utf8",
     );
-    "created.push("docs/kb-getting-started.md");
+    created.push("docs/kb-getting-started.md");
   }
 
   const zhGuide = path.join(docsDir, "kb-getting-started.zh-CN.md");
@@ -89,11 +97,15 @@ Index curated markdown (docs / skills / wiki), not your full source tree.
 
 索引精选 Markdown（docs / skills / wiki），不要扫全仓源码。
 
-## 流程
+## 一步到位（Cursor · Codex · WorkBuddy）
 
-1. \`npx workspace-kb ingest\`
-2. \`npx workspace-kb start\`（后台看板 + HTTP MCP）
-3. 在 Cursor 问架构问题——应先调用 \`kb_search\`。
+\`\`\`bash
+npm install
+npx workspace-kb up --port 8700 --ingest
+# 各客户端重载 MCP — 同一 URL：http://127.0.0.1:8700/mcp
+\`\`\`
+
+\`init\` 默认写入 \`setup.clients\` 并完成项目级接线；\`up\` 会把实际端口同步到三端配置。
 
 ## 中文索引建议
 
@@ -103,8 +115,9 @@ Index curated markdown (docs / skills / wiki), not your full source tree.
 
 ## 提示
 
-- HTTP MCP 需保持 \`serve\`/\`start\` 运行
-- 看板可重启 MCP、重建索引
+- HTTP MCP 需保持 \`up\`/\`serve\`/\`start\` 运行
+- 改端口后：\`npx workspace-kb install-clients --port <n>\`
+- 看板健康检查 → **clients** 可核对各端文件是否指向当前 URL
 `,
       "utf8",
     );
@@ -135,12 +148,15 @@ Index curated markdown (docs / skills / wiki), not your full source tree.
           type: "module",
           scripts: {
             "kb:ingest": "workspace-kb ingest",
+            "kb:up": "workspace-kb up",
             "kb:start": "workspace-kb start",
             "kb:search": "workspace-kb search",
             "kb:setup": "workspace-kb setup",
+            "kb:install-clients": "workspace-kb install-clients",
+            "kb:health": "workspace-kb health",
           },
           dependencies: {
-            "workspace-kb": "github:phuhao00/workspace-kb",
+            "workspace-kb": "github:phuhao00/workspace-kb#master",
           },
         },
         null,
@@ -161,9 +177,9 @@ Index curated markdown (docs / skills / wiki), not your full source tree.
     setup,
     next: [
       "npm install",
-      "npx workspace-kb ingest",
-      "npx workspace-kb start",
-      "open dashboard URL and restart MCP if needed",
+      "npx workspace-kb up --port <n> --ingest",
+      "reload MCP in Cursor / Codex / WorkBuddy (same /mcp URL)",
+      "npx workspace-kb health   # clients row should show wired",
     ],
   };
 }

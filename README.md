@@ -16,7 +16,7 @@ Index curated docs / skills / wiki — **not** your full source tree. Agents use
 
 - Cut token waste: agents get **snippets + one section**, not whole manuals.
 - Route multi-repo workspaces: find the right doc/repo first, then `rg` locally.
-- **Project memory**: share ops/triage facts across Cursor · Codex · CLI — tags, redaction, TTL, dashboard audit.
+- **Project memory**: share ops/triage facts across Cursor · Codex · WorkBuddy · CLI — tags, redaction, TTL, dashboard audit.
 - Dashboard tracks proxy savings (`chars/4`) and MCP health — not LLM billing.
 
 ## Requirements
@@ -35,12 +35,13 @@ ollama pull bge-m3
 ## Quick start
 
 ```bash
-npx workspace-kb init
+npx workspace-kb init          # scaffolds setup.clients (Cursor/Codex/WorkBuddy/Continue)
 npm install
-npx workspace-kb ingest
-# one command: sync MCP/port config + start dashboard (auto incremental ingest on)
-npx workspace-kb up --port 8700
-# open http://127.0.0.1:8700/
+# one command: sync MCP URLs + start dashboard + auto incremental ingest
+npx workspace-kb up --port 8700 --ingest
+# open http://127.0.0.1:8700/  → health → clients
+# reload MCP in each client (same /mcp URL)
+npx workspace-kb health
 npx workspace-kb search "payment failure"
 npx workspace-kb down
 ```
@@ -165,14 +166,14 @@ Open **http://127.0.0.1:8787/**
 
 ## Project memory (v1.5)
 
-Shared **project ops facts** across Cursor + Codex + CLI (env topology, staging ports, redacted triage conclusions).  
+Shared **project ops facts** across Cursor · Codex · WorkBuddy · CLI (env topology, staging ports, redacted triage conclusions).  
 **Not** IDE personal Memories, and **not** a substitute for `AGENTS.md` or the doc index.
 
 ### What belongs where
 
 | Store | Use for | Example |
 |-------|---------|---------|
-| Cursor / Codex Memories | Personal preferences | “I prefer TypeScript” |
+| Cursor / Codex / WorkBuddy Memories | Personal preferences | “I prefer TypeScript” |
 | `AGENTS.md` / `.cursor/rules` | Team hard rules (git-committed) | Branch model, no prod config edits |
 | `kb_search` / `kb_read` | Docs · skills · wiki | One section of a payment runbook |
 | `kb_memory_*` | Shared ops facts (redacted, TTL, dashboard audit) | “Staging hallapi HTTP :8080” |

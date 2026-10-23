@@ -537,9 +537,55 @@ th {
   }
 }
 
+.health-clients {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
 .health-client {
+  display: grid;
+  grid-template-columns: 7.5rem 4.5rem 1fr;
+  gap: 8px;
+  align-items: baseline;
   font-size: 12px;
-  opacity: 0.85;
-  margin-top: 2px;
-  padding-left: 0.5rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.health-client-id {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.health-client-status {
+  font-variant-numeric: tabular-nums;
+}
+
+.health-client-path {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-client--wired .health-client-status {
+  color: var(--green);
+}
+
+.health-client--stale .health-client-status {
+  color: var(--orange);
+}
+
+.health-client--miss .health-client-status {
+  color: var(--muted);
+}
+
+.health-clients-legend {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--muted);
 }

@@ -261,22 +261,44 @@ function renderHealth(health) {
     ? checks
         .map((c) => {
           const clients = Array.isArray(c.clients) ? c.clients : [];
-          const clientLines = clients
-            .map((item) => {
-              const mark = item.ok ? "✓" : item.exists ? "△" : "·";
-              const rel = shortenPath(item.path || "");
-              return `<div class="health-client">${mark} ${escapeHtml(item.id)} · ${escapeHtml(rel)}</div>`;
-            })
-            .join("");
+          let clientBlock = "";
+          if (clients.length) {
+            const rows = clients
+              .map((item) => {
+                const status = item.ok ? "wired" : item.exists ? "stale" : "miss";
+                const label =
+                  status === "wired" ? "已接线" : status === "stale" ? "端口过期" : "未写入";
+                const rel = shortenPath(item.path || "");
+                return `<li class="health-client health-client--${status}">
+                  <span class="health-client-id">${escapeHtml(clientLabel(item.id))}</span>
+                  <span class="health-client-status">${label}</span>
+                  <span class="health-client-path" title="${escapeAttr(item.path || "")}">${escapeHtml(rel)}</span>
+                </li>`;
+              })
+              .join("");
+            clientBlock = `<ul class="health-clients">${rows}</ul>
+              <p class="health-clients-legend">已接线 = URL 与看板端口一致 · 端口过期 = 文件在但 URL 不对 · 未写入 = 缺文件（跑 install-clients）</p>`;
+          }
           return `<div class="health-row ${c.ok ? "ok" : "bad"}">
             <strong>${escapeHtml(c.id)}</strong>
             <span>${escapeHtml(c.detail || "")}</span>
             ${c.hint ? `<em>${escapeHtml(c.hint)}</em>` : ""}
-            ${clientLines}
+            ${clientBlock}
           </div>`;
         })
         .join("")
     : `<div class="empty">No health data</div>`;
+}
+
+function clientLabel(id) {
+  const map = {
+    cursor: "Cursor",
+    codex: "Codex",
+    workbuddy: "WorkBuddy",
+    "workbuddy-plugin": "WorkBuddy 插件",
+    continue: "Continue",
+  };
+  return map[id] || id;
 }
 
 function shortenPath(p) {

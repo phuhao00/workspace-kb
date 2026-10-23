@@ -107,7 +107,7 @@ export async function startDaemon(opts = {}) {
     ? (await allocateDashboardPort({ port: "auto" })).port
     : resolved.port;
 
-  // Rewrite config + Cursor/Continue MCP URLs to the port we actually use
+  // Rewrite config + Cursor/Codex/WorkBuddy/Continue MCP URLs to the port we actually use
   const setupSync = await syncPortBindings(port, cfg.workspaceRoot);
 
   if (isPortAlive(port)) {

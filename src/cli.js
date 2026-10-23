@@ -164,25 +164,37 @@ async function main(cmd, args) {
     }
     case "setup": {
       const { runSetup } = await import("./setup.js");
-      const { parseClientsCliArgs } = await import("./clients.js");
+      const { parseClientsCliArgs, formatClientsSummary } = await import("./clients.js");
       const clientOpts = parseClientsCliArgs(args);
-      runSetup({
+      const asJson = args.includes("--json");
+      const silent = args.includes("--quiet");
+      const result = runSetup({
         port: parsePort(args),
         clients: clientOpts.clients,
         global: clientOpts.global,
+        quiet: silent || !asJson,
       });
+      if (!silent && !asJson) {
+        process.stdout.write(`${formatClientsSummary(result)}\n`);
+      }
+      if (result?.ok === false) process.exitCode = 1;
       return;
     }
     case "install-clients": {
       const { installClients } = await import("./setup.js");
-      const { parseClientsCliArgs } = await import("./clients.js");
+      const { parseClientsCliArgs, formatClientsSummary } = await import("./clients.js");
       const clientOpts = parseClientsCliArgs(args);
+      const asJson = args.includes("--json");
+      const silent = args.includes("--quiet");
       const result = installClients({
         port: parsePort(args),
         clients: clientOpts.clients,
         global: clientOpts.global,
-        quiet: args.includes("--quiet"),
+        quiet: silent || !asJson,
       });
+      if (!silent && !asJson) {
+        process.stdout.write(`${formatClientsSummary(result)}\n`);
+      }
       if (result?.ok === false) process.exitCode = 1;
       return;
     }
@@ -269,8 +281,9 @@ async function main(cmd, args) {
           "  watch                                     # foreground auto-ingest only\n" +
           "\n" +
           "Clients (Cursor · Codex · WorkBuddy):\n" +
-          "  install-clients [--port <n>] [--clients cursor,codex,workbuddy] [--global]\n" +
-          "  setup           [--port <n>] [--clients …] [--global]\n" +
+          "  install-clients [--port <n>] [--clients cursor,codex,workbuddy] [--global] [--json]\n" +
+          "  setup           [--port <n>] [--clients …] [--global] [--json]\n" +
+          "  (default: human summary; --json for machine-readable)\n" +
           "\n" +
           "Also: start|stop|serve|init|projects|health|status|stats|search|read|memory|feedback\n" +
           "Disable auto-ingest: --no-watch | autoIngest:false | WORKSPACE_KB_AUTO_INGEST=0\n" +

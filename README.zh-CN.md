@@ -16,7 +16,7 @@
 
 - **省 Token**：Agent 拿到摘要 + 单节内容，而不是整本手册。
 - **多仓路由**：先定位到正确的文档/子仓，再在该目录 `rg`。
-- **项目记忆**：运维/排查结论可跨 Cursor · Codex · CLI 共享，带标签、脱敏、TTL，看板可审计。
+- **项目记忆**：运维/排查结论可跨 Cursor · Codex · WorkBuddy · CLI 共享，带标签、脱敏、TTL，看板可审计。
 - **可观测**：看板统计代理节省量（`chars/4`）与 MCP 健康状态——**不是** LLM 账单。
 
 ## 环境要求
@@ -37,12 +37,13 @@ ollama pull bge-m3
 ## 快速开始
 
 ```bash
-npx workspace-kb init
+npx workspace-kb init          # 默认写入 setup.clients（Cursor/Codex/WorkBuddy/Continue）
 npm install
-npx workspace-kb ingest
-# 一键：写 MCP/端口配置 + 后台启动看板（默认开启文档自动增量索引）
-npx workspace-kb up --port 8700
-# 打开 http://127.0.0.1:8700/
+# 一键：同步三端 MCP URL + 启动看板 + 自动增量索引
+npx workspace-kb up --port 8700 --ingest
+# 打开 http://127.0.0.1:8700/ → 健康检查 → clients
+# 各客户端重载 MCP（同一 /mcp URL）
+npx workspace-kb health
 npx workspace-kb search "充值未到账"
 npx workspace-kb down          # 停止
 ```
@@ -179,14 +180,14 @@ npx workspace-kb serve --port 8787
 
 ## 项目记忆（v1.5）
 
-跨 **Cursor + Codex + CLI** 共享的**项目运维事实**（环境拓扑、测服端口、脱敏后的排查结论）。  
+跨 **Cursor · Codex · WorkBuddy · CLI** 共享的**项目运维事实**（环境拓扑、测服端口、脱敏后的排查结论）。  
 **不是** IDE 个人 Memories，也**不替代** `AGENTS.md` / 文档索引。
 
 ### 该存什么 / 不该存什么
 
 | 存哪 | 用途 | 示例 |
 |------|------|------|
-| Cursor / Codex Memories | 个人偏好、编码习惯 | 「我喜欢用 TypeScript」 |
+| Cursor / Codex / WorkBuddy Memories | 个人偏好、编码习惯 | 「我喜欢用 TypeScript」 |
 | `AGENTS.md` / `.cursor/rules` | 团队硬性规范（可 git 提交） | 分支模型、禁止改生产配置 |
 | `kb_search` / `kb_read` | 文档 · Skill · Wiki | 支付回调手册某一节 |
 | `kb_memory_*` | 共享运维结论（脱敏、可过期、看板审计） | 「测服 hallapi HTTP :8080」 |

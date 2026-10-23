@@ -27,7 +27,7 @@ export function validateMemoryText(text) {
     return {
       ok: false,
       reason:
-        "Looks like a personal preference - use Cursor Memories or Codex Memories instead of kb_memory",
+        "Looks like a personal preference - use Cursor / Codex / WorkBuddy Memories instead of kb_memory",
     };
   }
   for (const re of SECRET_PATTERNS) {

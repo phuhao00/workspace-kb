@@ -85,7 +85,7 @@ export function createMcpServer() {
     "kb_memory_put",
     {
       description:
-        "Store a PROJECT ops/investigation fact shared across Cursor, Codex, and CLI (ports, env topology, triage conclusions). Do NOT store personal preferences (use Cursor/Codex Memories) or AGENTS.md team rules. Redact secrets/PII. Optional ttlDays (default 90, 0=never).",
+        "Store a PROJECT ops/investigation fact shared across Cursor, Codex, WorkBuddy, and CLI (ports, env topology, triage conclusions). Do NOT store personal preferences (use Cursor/Codex/WorkBuddy Memories) or AGENTS.md team rules. Redact secrets/PII. Optional ttlDays (default 90, 0=never).",
       inputSchema: {
         text: z.string().describe("Fact text, redacted"),
         key: z.string().optional().describe("Stable key for upsert"),
@@ -107,7 +107,7 @@ export function createMcpServer() {
     "kb_memory_search",
     {
       description:
-        "Search project ops facts in .workspace-kb/memory (shared Cursor+Codex+CLI). For docs/skills use kb_search instead.",
+        "Search project ops facts in .workspace-kb/memory (shared Cursor+Codex+WorkBuddy+CLI). For docs/skills use kb_search instead.",
       inputSchema: {
         query: z.string().optional().describe("Keywords"),
         tag: z.string().optional().describe("Filter by tag"),

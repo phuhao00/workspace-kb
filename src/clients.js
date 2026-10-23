@@ -69,6 +69,63 @@ export function parseClientsCliArgs(args) {
 }
 
 /**
+ * Human-readable summary for install-clients / setup CLI (stderr or stdout).
+ * @param {{
+ *   ok?: boolean,
+ *   mcpUrl?: string,
+ *   serverId?: string,
+ *   dashboardPort?: number,
+ *   clients?: string[],
+ *   configuredClients?: Array<{ id: string, path: string, exists: boolean, ok: boolean }>,
+ *   writeErrors?: Array<{ step: string, error: string }>,
+ *   reason?: string,
+ * }} result
+ */
+export function formatClientsSummary(result) {
+  if (!result || result.ok === false) {
+    const reason = result?.reason || result?.writeErrors?.[0]?.error || "setup failed";
+    return `workspace-kb clients: FAILED — ${reason}`;
+  }
+  const lines = [
+    "workspace-kb clients",
+    `  MCP     ${result.mcpUrl || `http://127.0.0.1:${result.dashboardPort || "?"}/mcp`}`,
+    `  server  ${result.serverId || "?"}`,
+    `  want    ${(result.clients || DEFAULT_CLIENTS).join(", ")}`,
+  ];
+  const probes = Array.isArray(result.configuredClients) ? result.configuredClients : [];
+  if (probes.length) {
+    lines.push("  files");
+    for (const item of probes) {
+      const mark = item.ok ? "OK" : item.exists ? "STALE" : "MISS";
+      const rel = shortenClientPath(item.path || "");
+      lines.push(`    [${mark}] ${padId(item.id)}  ${rel}`);
+    }
+  }
+  if (result.writeErrors?.length) {
+    lines.push("  write errors");
+    for (const err of result.writeErrors) {
+      lines.push(`    - ${err.step}: ${err.error}`);
+    }
+  }
+  lines.push("  next   reload MCP in each client · keep up/start running");
+  return lines.join("\n");
+}
+
+/** @param {string} id */
+function padId(id) {
+  return String(id).padEnd(16, " ");
+}
+
+/** @param {string} p */
+function shortenClientPath(p) {
+  if (!p) return "";
+  const norm = String(p).replace(/\\/g, "/");
+  const parts = norm.split("/");
+  if (parts.length <= 4) return norm;
+  return parts.slice(-4).join("/");
+}
+
+/**
  * Probe which client config files already exist for this workspace.
  * @param {string} workspaceRoot
  * @param {string} serverId
@@ -178,10 +235,11 @@ export function writeCodexMcp(opts) {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   let text = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, "utf8") : "";
   text = upsertCodexMcpSection(text, serverId, mcpUrl);
-  writeFileResilient(targetPath, text.endsWith("\n") ? text : `${text}\n`);
+  const next = text.endsWith("\n") ? text : `${text}\n`;
+  const status = writeFileIfChanged(targetPath, next);
 
   /** @type {{ codex: string, path: string, cli?: string }} */
-  const result = { codex: "written", path: targetPath };
+  const result = { codex: status === "unchanged" ? "unchanged" : "written", path: targetPath };
 
   if (tryCli && useGlobal) {
     try {
@@ -257,8 +315,11 @@ export function writeWorkbuddyMcp(opts) {
     doc.mcpServers[serverId] = { url: mcpUrl };
   }
 
-  writeFileResilient(mcpPath, `${JSON.stringify(doc, null, 2)}\n`);
-  return { workbuddy: "written", path: mcpPath };
+  const status = writeFileIfChanged(mcpPath, `${JSON.stringify(doc, null, 2)}\n`);
+  return {
+    workbuddy: status === "unchanged" ? "unchanged" : "written",
+    path: mcpPath,
+  };
 }
 
 /**
@@ -282,7 +343,7 @@ export function writeCodebuddyPlugin(opts) {
       "Local LanceDB knowledge base for agents (Cursor/Codex/WorkBuddy). Requires `npx workspace-kb up` on this machine.",
     author: { name: "workspace-kb" },
   };
-  writeFileResilient(
+  writeFileIfChanged(
     path.join(pluginRoot, "plugin.json"),
     `${JSON.stringify(pluginJson, null, 2)}\n`,
   );
@@ -292,14 +353,14 @@ export function writeCodebuddyPlugin(opts) {
       [serverId]: { url: mcpUrl },
     },
   };
-  writeFileResilient(
+  writeFileIfChanged(
     path.join(pluginRoot, ".mcp.json"),
     `${JSON.stringify(mcpDoc, null, 2)}\n`,
   );
 
   const skillDir = path.join(pluginRoot, "skills", "query-workspace-kb");
   fs.mkdirSync(skillDir, { recursive: true });
-  writeFileResilient(path.join(skillDir, "SKILL.md"), renderSharedSkillMd(serverId));
+  writeFileIfChanged(path.join(skillDir, "SKILL.md"), renderSharedSkillMd(serverId));
 
   const readme = [
     "# workspace-kb (CodeBuddy / WorkBuddy plugin)",
@@ -323,9 +384,12 @@ export function writeCodebuddyPlugin(opts) {
     "Keep the dashboard running while agents call `kb_search` / `kb_memory_*`.",
     "",
   ].join("\n");
-  writeFileResilient(path.join(pluginRoot, "README.md"), readme);
+  const readmeStatus = writeFileIfChanged(path.join(pluginRoot, "README.md"), readme);
 
-  return { codebuddyPlugin: "written", path: pluginRoot };
+  return {
+    codebuddyPlugin: readmeStatus === "unchanged" ? "unchanged" : "written",
+    path: pluginRoot,
+  };
 }
 
 /**
@@ -338,8 +402,11 @@ export function writeAgentsSkill(workspaceRoot, serverId) {
   fs.mkdirSync(skillDir, { recursive: true });
   const skillPath = path.join(skillDir, "SKILL.md");
   const body = renderSharedSkillMd(serverId);
-  writeFileResilient(skillPath, body);
-  return { agentsSkill: "written", path: skillPath };
+  const status = writeFileIfChanged(skillPath, body);
+  return {
+    agentsSkill: status === "unchanged" ? "unchanged" : "written",
+    path: skillPath,
+  };
 }
 
 /**
@@ -348,10 +415,13 @@ export function writeAgentsSkill(workspaceRoot, serverId) {
  * @param {string} body
  */
 export function writeFileResilient(filePath, body) {
+  // Always UTF-8 without BOM — Node writeFileSync("utf8") does not emit BOM.
+  const payload = typeof body === "string" ? body : String(body);
   let lastErr;
   for (let i = 0; i < 5; i++) {
     try {
-      fs.writeFileSync(filePath, body, "utf8");
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, payload, { encoding: "utf8", flag: "w" });
       return;
     } catch (err) {
       lastErr = err;
@@ -363,6 +433,27 @@ export function writeFileResilient(filePath, body) {
     }
   }
   throw lastErr;
+}
+
+/**
+ * Write only when content differs (UTF-8, no BOM). Still retries on Win locks.
+ * @param {string} filePath
+ * @param {string} body
+ * @returns {"written" | "unchanged"}
+ */
+export function writeFileIfChanged(filePath, body) {
+  const payload = typeof body === "string" ? body : String(body);
+  if (fs.existsSync(filePath)) {
+    try {
+      if (fs.readFileSync(filePath, "utf8") === payload) {
+        return "unchanged";
+      }
+    } catch {
+      // fall through to write
+    }
+  }
+  writeFileResilient(filePath, payload);
+  return "written";
 }
 
 /** @param {number} ms */

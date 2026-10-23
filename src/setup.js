@@ -9,6 +9,7 @@ import {
   writeCodexMcp,
   writeWorkbuddyMcp,
   writeFileResilient,
+  writeFileIfChanged,
   renderSharedSkillMd,
 } from "./clients.js";
 import { registerProject } from "./daemon.js";
@@ -336,12 +337,13 @@ function writeCursorMcp(workspaceRoot, configPath, mcpScript, serverId, setupCfg
     };
   }
 
-  writeFileResilient(mcpPath, `${JSON.stringify(doc, null, 2)}\n`);
+  const status = writeFileIfChanged(mcpPath, `${JSON.stringify(doc, null, 2)}\n`);
   return {
     mcpPath,
     serverId,
     mcpMode,
     mcpUrl: `http://127.0.0.1:${dashboardPort}/mcp`,
+    status,
   };
 }
 
@@ -369,8 +371,8 @@ function writeCursorRule(workspaceRoot, serverId, setupCfg) {
     "- Prefer HTTP MCP via `npx workspace-kb up` / dashboard `/mcp`. Same URL works for Cursor, Codex, and WorkBuddy. Restart MCP from the dashboard if `workspaceRoot` looks wrong.",
     "",
   ].join("\n");
-  writeFileResilient(rulePath, body);
-  return { cursorRule: "written", rulePath };
+  const status = writeFileIfChanged(rulePath, body);
+  return { cursorRule: status === "unchanged" ? "unchanged" : "written", rulePath };
 }
 
 function writeCursorSkill(workspaceRoot, serverId, setupCfg) {
@@ -380,8 +382,8 @@ function writeCursorSkill(workspaceRoot, serverId, setupCfg) {
   const skillDir = path.join(workspaceRoot, ".cursor", "skills", "query-workspace-kb");
   fs.mkdirSync(skillDir, { recursive: true });
   const skillPath = path.join(skillDir, "SKILL.md");
-  writeFileResilient(skillPath, renderSharedSkillMd(serverId));
-  return { cursorSkill: "written", skillPath };
+  const status = writeFileIfChanged(skillPath, renderSharedSkillMd(serverId));
+  return { cursorSkill: status === "unchanged" ? "unchanged" : "written", skillPath };
 }
 
 function writeContinueConfig(workspaceRoot, configPath, serverId, dashboardPort, setupCfg) {
@@ -417,8 +419,11 @@ function writeContinueConfig(workspaceRoot, configPath, serverId, dashboardPort,
     ],
   };
   const outPath = path.join(contDir, "workspace-kb.mcp.json");
-  writeFileResilient(outPath, `${JSON.stringify(doc, null, 2)}\n`);
-  return { continueConfig: "written", path: outPath };
+  const status = writeFileIfChanged(outPath, `${JSON.stringify(doc, null, 2)}\n`);
+  return {
+    continueConfig: status === "unchanged" ? "unchanged" : "written",
+    path: outPath,
+  };
 }
 
 function renderAgentsBlock(serverId, dashboardPort) {
@@ -452,19 +457,22 @@ function patchAgentsMd(workspaceRoot, serverId, dashboardPort) {
       } else {
         content = content.replace(/<!-- WORKSPACE-KB:START -->[\s\S]*$/, block);
       }
-      fs.writeFileSync(agentsPath, content, "utf8");
-      return { agentsMd: "updated", path: agentsPath };
+      const status = writeFileIfChanged(agentsPath, content);
+      return {
+        agentsMd: status === "unchanged" ? "unchanged" : "updated",
+        path: agentsPath,
+      };
     }
     if (/\bkb_search\b/.test(content)) {
       return { agentsMd: "skipped-custom", path: agentsPath };
     }
     content = removeLegacyKbSection(content);
     content = `${content.trimEnd()}\n\n${block}\n`;
-    fs.writeFileSync(agentsPath, content, "utf8");
+    writeFileResilient(agentsPath, content);
     return { agentsMd: "appended", path: agentsPath };
   }
 
-  fs.writeFileSync(agentsPath, `${block}\n`, "utf8");
+  writeFileResilient(agentsPath, `${block}\n`);
   return { agentsMd: "created", path: agentsPath };
 }
 

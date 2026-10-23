@@ -12,6 +12,8 @@
 | 协议 | MIT |
 | 仓库 | https://github.com/phuhao00/workspace-kb |
 
+![一引擎三端：up → install-clients → 重载 MCP](docs/media/three-clients.gif)
+
 ## 解决什么问题
 
 - **省 Token**：Agent 拿到摘要 + 单节内容，而不是整本手册。
@@ -94,7 +96,7 @@ npm install github:phuhao00/workspace-kb#master
 
 ## 三端同开（Cursor · Codex · WorkBuddy）
 
-**一个引擎、一个索引、一个记忆库**，三端共用同一 HTTP MCP URL：
+与上方动图同一流程：起一次看板 → 写入三端配置 → 各端重载 MCP。**一个引擎、一个索引、一个记忆库**，共用同一 HTTP MCP URL：
 
 ```bash
 npx workspace-kb up --port 8787          # 起看板 + /mcp + 自动增量

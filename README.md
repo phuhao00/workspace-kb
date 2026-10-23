@@ -12,6 +12,8 @@ Index curated docs / skills / wiki — **not** your full source tree. Agents use
 | License | MIT |
 | Repo | https://github.com/phuhao00/workspace-kb |
 
+![One engine, three clients: up → install-clients → reload MCP](docs/media/three-clients.gif)
+
 ## Why
 
 - Cut token waste: agents get **snippets + one section**, not whole manuals.
@@ -91,6 +93,8 @@ Subset: `"setup": { "clients": ["cursor","codex"] }` or `install-clients --clien
 After upgrade: **restart `up`/`start`/`serve`**, then **重启 MCP** on the dashboard (or reload each client’s MCP).
 
 ## One engine, three clients (Cursor · Codex · WorkBuddy)
+
+Same flow as the animation above: start the dashboard once, wire clients, reload MCP — one HTTP URL for all three.
 
 ```bash
 npx workspace-kb up --port 8787

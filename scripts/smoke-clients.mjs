@@ -8,6 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_CLIENTS,
+  detectConfiguredClients,
   formatClientsSummary,
   resolveClients,
   upsertCodexMcpSection,
@@ -117,6 +118,40 @@ section("init + setup idempotency");
   assert(summary.includes("18788"), "summary port");
   assert(!summary.includes("FAILED"), "summary not failed");
 
+  const detected = detectConfiguredClients(root, serverId, 18788);
+  assert(detected.mcpUrl === "http://127.0.0.1:18788/mcp", "detect mcpUrl");
+  const probes = Array.isArray(detected.clients) ? detected.clients : [];
+  assert(probes.length >= 3, "detectConfiguredClients items");
+  const byId = Object.fromEntries(probes.map((p) => [p.id, p]));
+  assert(byId.cursor?.ok === true, "probe cursor ok");
+  assert(byId.codex?.ok === true, "probe codex ok");
+  assert(byId.workbuddy?.ok === true, "probe workbuddy ok");
+
+  const subset = runSetup({
+    startDir: root,
+    quiet: true,
+    port: 18789,
+    clients: ["cursor", "codex"],
+  });
+  assert(subset.ok === true, "subset setup ok");
+  assert(
+    Array.isArray(subset.clients) && subset.clients.join(",") === "cursor,codex",
+    "subset clients list",
+  );
+  const subsetCursor = JSON.parse(fs.readFileSync(cursorMcp, "utf8"));
+  assert(
+    subsetCursor.mcpServers?.[serverId]?.url === "http://127.0.0.1:18789/mcp",
+    "subset cursor url",
+  );
+  const subsetToml = fs.readFileSync(codexToml, "utf8");
+  assert(subsetToml.includes('url = "http://127.0.0.1:18789/mcp"'), "subset codex url");
+  // WorkBuddy omitted from --clients → keep prior port wiring
+  const wbDoc = JSON.parse(fs.readFileSync(wbMcp, "utf8"));
+  assert(
+    wbDoc.mcpServers?.[serverId]?.url === "http://127.0.0.1:18788/mcp",
+    "subset leaves workbuddy on prior port",
+  );
+
   fs.rmSync(root, { recursive: true, force: true });
 }
 
@@ -126,11 +161,21 @@ section("docs GIF + promo");
   const gif = path.join(repoRoot, "docs", "media", "three-clients.gif");
   assert(fs.existsSync(gif), "docs/media/three-clients.gif exists");
   const gifSize = fs.statSync(gif).size;
-  assert(gifSize > 50_000 && gifSize < 2_000_000, `gif size sane (${gifSize})`);
+  assert(gifSize > 50_000 && gifSize < 1_000_000, `gif size under 1MB (${gifSize})`);
+
+  for (const readme of ["README.md", "README.zh-CN.md"]) {
+    const body = fs.readFileSync(path.join(repoRoot, readme), "utf8");
+    assert(
+      body.includes("docs/media/three-clients.gif"),
+      `${readme} embeds three-clients.gif`,
+    );
+    assert(body.includes("install-clients"), `${readme} mentions install-clients`);
+  }
 
   const promoPkgPath = path.join(repoRoot, "promo", "package.json");
   assert(fs.existsSync(promoPkgPath), "promo/package.json");
   const promoPkg = JSON.parse(fs.readFileSync(promoPkgPath, "utf8"));
+  assert(promoPkg.private === true, "promo is private (CI-safe, not published)");
   const renderGif = promoPkg.scripts?.["render:gif"] || "";
   assert(
     renderGif.includes("three-clients.gif") && renderGif.includes("ThreeClients"),
@@ -143,6 +188,7 @@ section("docs GIF + promo");
   assert(src.includes("install-clients"), "promo mentions install-clients");
   assert(src.includes("WorkBuddy"), "promo mentions WorkBuddy");
   assert(src.includes("Cursor") && src.includes("Codex"), "promo mentions Cursor+Codex");
+  assert(src.includes("#0f1419"), "promo dark bg for GitHub");
 }
 
 section("done");

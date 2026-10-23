@@ -18,7 +18,7 @@ npm run dev
 
 ## Re-export GIF for README
 
-Writes `docs/media/three-clients.gif` (~7s @ 30fps, scale 0.75, every 2nd frame → ~500–700KB):
+Writes `docs/media/three-clients.gif` (~7s @ 30fps, scale 0.75, every 2nd frame → ~700–850KB; keep under 1MB):
 
 ```bash
 cd promo
@@ -35,7 +35,7 @@ npx remotion render ThreeClients ../docs/media/three-clients.gif \
 
 Use a free `--port` if 3000/3124 is already taken.
 
-Root `npm run smoke` asserts the GIF path exists and `promo` still points at it.
+Root `npm run smoke` (also `.github/workflows/smoke.yml`) asserts the GIF path exists and `promo` still points at it — no Remotion install required in CI.
 
 ## Edit
 

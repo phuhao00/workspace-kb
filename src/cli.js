@@ -280,10 +280,11 @@ async function main(cmd, args) {
           "  down [--port <n>]                         # stop\n" +
           "  watch                                     # foreground auto-ingest only\n" +
           "\n" +
-          "Clients (Cursor · Codex · WorkBuddy):\n" +
-          "  install-clients [--port <n>] [--clients cursor,codex,workbuddy] [--global] [--json]\n" +
+          "Clients (Cursor · Codex · WorkBuddy · Continue):\n" +
+          "  install-clients [--port <n>] [--clients cursor,codex,workbuddy,continue] [--global] [--json]\n" +
           "  setup           [--port <n>] [--clients …] [--global] [--json]\n" +
           "  (default: human summary; --json for machine-readable)\n" +
+          "  start/serve/up also re-sync enabled clients to the listen port\n" +
           "\n" +
           "Also: start|stop|serve|init|projects|health|status|stats|search|read|memory|feedback\n" +
           "Disable auto-ingest: --no-watch | autoIngest:false | WORKSPACE_KB_AUTO_INGEST=0\n" +

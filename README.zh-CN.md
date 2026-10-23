@@ -132,7 +132,7 @@ workspace-kb <命令>
   down [--port <n>]                        # ★ 停止
   watch                                    # 仅自动增量（前台）
   init [--force] [--name 应用名] [--port <n>]
-  setup [--port <n>] [--clients cursor,codex,workbuddy] [--global]
+  setup [--port <n>] [--clients cursor,codex,workbuddy,continue] [--global]
   install-clients [--port <n>] [--clients …] [--global]  # ★ 三端接线
   ingest [--full]
   start | stop | serve [--port <1-65535|auto>] [--no-watch]
@@ -371,16 +371,16 @@ npx workspace-kb ingest --full
 # "setup": { "dashboardPort": 19090 }
 
 npx workspace-kb start                  # 用配置端口（并同步 MCP URL）
-npx workspace-kb start --port 19091     # 覆盖端口，同时写回 config + `.cursor/mcp.json`
+npx workspace-kb start --port 19091     # 覆盖端口，写回 config + 各端 MCP URL
 npx workspace-kb start --port auto      # 系统分配空闲端口并同步配置
 npx workspace-kb stop                   # 停配置/registry 对应端口
 npx workspace-kb setup --port 19090     # 仅重写 MCP URL 并写回 config（不启动）
 npx workspace-kb projects
 ```
 
-`start` / `serve` 在选定端口后会自动同步：`workspace-kb.config.json` → `setup.dashboardPort`、`.cursor/mcp.json`、`.continue/workspace-kb.mcp.json`。
+`start` / `serve` / `up` 在选定端口后走与 `install-clients` 相同的 setup：写回 `setup.dashboardPort`，并把 `setup.clients` 里启用的客户端（默认 Cursor · Codex · WorkBuddy · Continue）全部改到同一 `http://127.0.0.1:<port>/mcp`。
 
-优先使用**项目内** `.cursor/mcp.json`。示例：[`examples/multi-a`](examples/multi-a)、[`examples/multi-b`](examples/multi-b)、[`examples/multi-project.mcp.json`](examples/multi-project.mcp.json)。
+优先使用**项目内**配置（不只 Cursor）。示例：[`examples/multi-a`](examples/multi-a)、[`examples/multi-b`](examples/multi-b)、[`examples/multi-project.mcp.json`](examples/multi-project.mcp.json)。
 
 ## Cursor / Agent 使用建议
 

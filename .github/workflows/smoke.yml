@@ -1,0 +1,22 @@
+name: smoke
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  smoke-clients:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      # Root smoke only — no Ollama/LanceDB; promo render is optional local.
+      - name: Install root deps
+        run: npm ci --ignore-scripts || npm install --ignore-scripts
+      - name: Smoke (clients + GIF wiring)
+        run: npm run smoke

@@ -130,7 +130,7 @@ workspace-kb <command>
   down [--port <n>]                        # ★ stop
   watch                                    # auto-ingest only (foreground)
   init [--force] [--name app] [--port <n>]
-  setup [--port <n>] [--clients cursor,codex,workbuddy] [--global]
+  setup [--port <n>] [--clients cursor,codex,workbuddy,continue] [--global]
   install-clients [--port <n>] [--clients …] [--global]
   ingest [--full]
   start | stop | serve [--port <1-65535|auto>] [--no-watch]
@@ -360,16 +360,16 @@ Resolution order: `--port` → `WORKSPACE_KB_PORT` → `setup.dashboardPort` →
 # "setup": { "dashboardPort": 19090 }
 
 npx workspace-kb start                  # config port (also syncs MCP URL)
-npx workspace-kb start --port 19091     # override + rewrite config + `.cursor/mcp.json`
+npx workspace-kb start --port 19091     # override + rewrite config + all client MCP URLs
 npx workspace-kb start --port auto      # OS free port + sync bindings
 npx workspace-kb stop                   # stops config/registry port
 npx workspace-kb setup --port 19090     # rewrite MCP URL + persist config only
 npx workspace-kb projects
 ```
 
-`start` / `serve` sync after the listen port is chosen: `setup.dashboardPort`, `.cursor/mcp.json`, and `.continue/workspace-kb.mcp.json`.
+`start` / `serve` / `up` sync after the listen port is chosen via the same setup path as `install-clients`: persist `setup.dashboardPort`, then rewrite every enabled client in `setup.clients` (default Cursor · Codex · WorkBuddy · Continue) to the shared `http://127.0.0.1:<port>/mcp` URL.
 
-Prefer **project-local** `.cursor/mcp.json`. Examples: [`examples/multi-a`](examples/multi-a), [`examples/multi-b`](examples/multi-b), [`examples/multi-project.mcp.json`](examples/multi-project.mcp.json).
+Prefer **project-local** configs (not only Cursor). Examples: [`examples/multi-a`](examples/multi-a), [`examples/multi-b`](examples/multi-b), [`examples/multi-project.mcp.json`](examples/multi-project.mcp.json).
 
 ### Indexing Chinese docs
 
